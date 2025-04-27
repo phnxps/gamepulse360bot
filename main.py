@@ -6,7 +6,6 @@ from telegram.ext import ApplicationBuilder, CallbackQueryHandler, JobQueue
 from datetime import datetime, timedelta
 import random
 
-
 # Map short numeric IDs to article URLs
 news_map = {}
 next_id = 0
@@ -21,9 +20,9 @@ RSS_FEEDS = [
     'https://www.vidaextra.com/feed',
     'https://www.nintenderos.com/feed',
     'https://as.com/meristation/portada/rss.xml',
-    'https://blog.es.playstation.com/feed',
-    'https://www.nintendo.com/es/news/rss.xml',  
-    'https://news.xbox.com/es-latam/feed/',
+    'https://blog.es.playstation.com/',
+    'https://www.nintendo.com/es-es/Noticias/Noticias-y-novedades-11145.html?srsltid=AfmBOoq7KUJIK6DdMAFbXGy8xQLj5qbGrlvhLHxfxYkM-2AgoKvKLvvW',
+    'https://news.xbox.com/es-latam/',
     
 
 ]
@@ -52,32 +51,8 @@ async def send_news(context, entry):
     next_id += 1
     news_map[news_id] = entry.link
 
-    # determine platform
-    link = entry.link.lower()
-    if 'playstation' in link:
-        tag = '#PlayStation'
-    elif 'xbox' in link:
-        tag = '#Xbox'
-    elif 'nintendo' in link:
-        tag = '#Nintendo'
-    else:
-        tag = ''
-
     # determine if it's a trailer
     is_trailer = any(kw in entry.title.lower() for kw in ["tráiler", "trailer", "gameplay trailer"])
-    # try to extract a video
-    video_url = None
-    if entry.get("media_content"):
-        for m in entry.media_content:
-            # if feed marks video content
-            if m.get("type", "").startswith("video/") or m.get("medium") == "video":
-                video_url = m.get("url")
-                break
-    if not video_url and entry.get("enclosures"):
-        for enc in entry.enclosures:
-            if enc.get("type", "").startswith("video/"):
-                video_url = enc.get("url")
-                break
     # try to extract an image
     photo_url = None
     if entry.get("media_content"):
@@ -97,20 +72,10 @@ async def send_news(context, entry):
         buttons.insert(1, [InlineKeyboardButton("🎬 Ver Tráiler Oficial", url=entry.link)])
 
     reply_markup = InlineKeyboardMarkup(buttons)
-
-    # caption without summary
-    caption = f"🎮 *{entry.title}*\n\n#Gamepulse360 {tag} #NoticiasGamer"
+    caption = f"🎮 *{entry.title}*\n\n{entry.summary[:200]}...\n\n#Gamepulse360 #NoticiasGamer"
 
     try:
-        if video_url:
-            await context.bot.send_video(
-                chat_id=CHANNEL_USERNAME,
-                video=video_url,
-                caption=caption,
-                parse_mode=telegram.constants.ParseMode.MARKDOWN,
-                reply_markup=reply_markup
-            )
-        elif photo_url:
+        if photo_url:
             await context.bot.send_photo(
                 chat_id=CHANNEL_USERNAME,
                 photo=photo_url,
@@ -144,10 +109,9 @@ async def send_curiosity(context):
         print(f"Error al enviar curiosidad: {e}")
 
 async def check_feeds(context):
-    global last_curiosity_sent, last_check
-    now = datetime.now()
+    global last_curiosity_sent
     new_article_sent = False
-    
+
     for feed_url in RSS_FEEDS:
         feed = feedparser.parse(feed_url)
         for entry in feed.entries[:5]:
@@ -155,9 +119,8 @@ async def check_feeds(context):
                 await send_news(context, entry)
                 sent_articles.add(entry.link)
                 new_article_sent = True
-    # update last_check to current time
-    last_check = now
     if not new_article_sent:
+        now = datetime.now()
         if now - last_curiosity_sent > timedelta(hours=6):
             await send_curiosity(context)
             last_curiosity_sent = now
@@ -180,7 +143,7 @@ def main():
     job_queue.run_repeating(check_feeds, interval=600, first=10)  # cada 10 minutos
 
     print("Bot iniciado correctamente.")
- application.run_polling(drop_pending_updates=True)
+    application.run_polling()
 
 if __name__ == "__main__":
     main()
