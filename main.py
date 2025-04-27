@@ -44,6 +44,9 @@ sent_articles = set()
 last_curiosity_sent = datetime.now() - timedelta(hours=6)
 votes = {}
 
+# Track last check time to only send recent entries
+last_check = datetime.now() - timedelta(minutes=10)
+
 async def send_news(context, entry):
     global next_id
     # assign a short ID for this article
@@ -64,6 +67,19 @@ async def send_news(context, entry):
 
     # determine if it's a trailer
     is_trailer = any(kw in entry.title.lower() for kw in ["tráiler", "trailer", "gameplay trailer"])
+    # try to extract a video
+    video_url = None
+    if entry.get("media_content"):
+        for m in entry.media_content:
+            # if feed marks video content
+            if m.get("type", "").startswith("video/") or m.get("medium") == "video":
+                video_url = m.get("url")
+                break
+    if not video_url and entry.get("enclosures"):
+        for enc in entry.enclosures:
+            if enc.get("type", "").startswith("video/"):
+                video_url = enc.get("url")
+                break
     # try to extract an image
     photo_url = None
     if entry.get("media_content"):
@@ -88,7 +104,15 @@ async def send_news(context, entry):
     caption = f"🎮 *{entry.title}*\n\n#Gamepulse360 {tag} #NoticiasGamer"
 
     try:
-        if photo_url:
+        if video_url:
+            await context.bot.send_video(
+                chat_id=CHANNEL_USERNAME,
+                video=video_url,
+                caption=caption,
+                parse_mode=telegram.constants.ParseMode.MARKDOWN,
+                reply_markup=reply_markup
+            )
+        elif photo_url:
             await context.bot.send_photo(
                 chat_id=CHANNEL_USERNAME,
                 photo=photo_url,
@@ -122,18 +146,25 @@ async def send_curiosity(context):
         print(f"Error al enviar curiosidad: {e}")
 
 async def check_feeds(context):
-    global last_curiosity_sent
+    global last_curiosity_sent, last_check
+    now = datetime.now()
     new_article_sent = False
 
     for feed_url in RSS_FEEDS:
         feed = feedparser.parse(feed_url)
         for entry in feed.entries[:5]:
+            # Skip entries older than the last check
+            if hasattr(entry, 'published_parsed'):
+                published = datetime.fromtimestamp(time.mktime(entry.published_parsed))
+                if published < last_check:
+                    continue
             if entry.link not in sent_articles:
                 await send_news(context, entry)
                 sent_articles.add(entry.link)
                 new_article_sent = True
+    # update last_check to current time
+    last_check = now
     if not new_article_sent:
-        now = datetime.now()
         if now - last_curiosity_sent > timedelta(hours=6):
             await send_curiosity(context)
             last_curiosity_sent = now
