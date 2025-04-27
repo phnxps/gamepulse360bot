@@ -42,11 +42,19 @@ CURIOSIDADES = [
     "Metroid fue uno de los primeros juegos en presentar una protagonista femenina. 🚀",
     "Sega dejó de fabricar consolas tras el fracaso de Dreamcast. 🌀",
     "La consola Wii de Nintendo se llamaba inicialmente 'Revolution'. 🔥",
-    "PlayStation 5 tuvo su mayor venta de lanzamiento en Amazon en menos de 12 segundos. 🛒",
-    "El término 'gamer' apareció en revistas especializadas en los 80s. 📖"
+    "PlayStation 5 agotó su stock en Amazon en menos de 12 segundos. ⚡",
+    "Breath of the Wild fue lanzado junto a la Nintendo Switch y redefinió los mundos abiertos. 🌎",
+    "GTA V recaudó más de 800 millones de dólares en su primer día. 💵",
+    "The Last of Us Part II ganó más de 300 premios de Juego del Año. 🏆",
+    "Red Dead Redemption 2 tardó 8 años en desarrollarse. 🐎",
+    "Cyberpunk 2077 vendió 13 millones de copias en sus primeras tres semanas. 🤖",
+    "Animal Crossing: New Horizons fue el fenómeno social de 2020. 🏝️",
+    "Call of Duty: Modern Warfare 3 fue el juego más vendido de 2011. 🎯",
+    "El primer tráiler de Elden Ring tardó 2 años en publicarse tras su anuncio. 🕯️",
 ]
 
 sent_articles = set()
+proximos_lanzamientos = []
 last_curiosity_sent = datetime.now() - timedelta(hours=6)
 
 async def send_news(context, entry):
@@ -104,6 +112,10 @@ async def send_news(context, entry):
             special_tags.append("#ProximoLanzamiento")
             if not emoji_special:
                 emoji_special = '🎉'
+
+    if "#ProximoLanzamiento" in special_tags:
+        fecha_publicacion = published.strftime('%d/%m/%Y') if 'published' in locals() else "Próximamente"
+        proximos_lanzamientos.append(f"- {entry.title} ({fecha_publicacion})")
 
     # Review detection
     if any(kw in title_lower for kw in ["análisis", "review", "reseña", "comparativa"]):
@@ -187,10 +199,27 @@ async def check_feeds(context):
                 new_article_sent = True
 
     if not new_article_sent:
+        if datetime.now().weekday() == 6:  # Domingo
+            await send_launch_summary(context)
         now = datetime.now()
         if now - last_curiosity_sent > timedelta(hours=6):
             await send_curiosity(context)
             last_curiosity_sent = now
+
+async def send_launch_summary(context):
+    if not proximos_lanzamientos:
+        return
+    resumen = "🚀 *Próximos lanzamientos detectados:*\n\n" + "\n".join(proximos_lanzamientos)
+    try:
+        await context.bot.send_message(
+            chat_id=CHANNEL_USERNAME,
+            text=resumen,
+            parse_mode=telegram.constants.ParseMode.MARKDOWN,
+            disable_web_page_preview=False
+        )
+        proximos_lanzamientos.clear()
+    except Exception as e:
+        print(f"Error al enviar resumen de lanzamientos: {e}")
 
 def main():
     application = ApplicationBuilder().token(BOT_TOKEN).build()
