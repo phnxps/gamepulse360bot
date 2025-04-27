@@ -192,6 +192,8 @@ async def send_news(context, entry):
         # Añadir la noticia enviada al archivo
         with open(SENT_ARTICLES_FILE, 'a') as f:
             f.write(entry.link + '\n')
+        sent_articles.add(entry.link)
+        print(f"✅ Noticia guardada: {entry.link}")
     except Exception as e:
         print(f"Error al enviar noticia: {e}")
 
