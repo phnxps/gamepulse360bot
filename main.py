@@ -6,6 +6,10 @@ from telegram.ext import ApplicationBuilder, CallbackQueryHandler, JobQueue
 from datetime import datetime, timedelta
 import random
 
+# Map short numeric IDs to article URLs
+news_map = {}
+next_id = 0
+
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 CHANNEL_USERNAME = os.getenv("CHANNEL_USERNAME")
 
@@ -34,28 +38,53 @@ sent_articles = set()
 last_curiosity_sent = datetime.now() - timedelta(hours=6)
 votes = {}
 
-async def send_news(context, title, link, is_trailer=False):
-    keyboard = [
-        [InlineKeyboardButton("📖 Leer noticia", url=link)],
-        [InlineKeyboardButton("👍 0", callback_data=f"like|{link}"),
-         InlineKeyboardButton("👎 0", callback_data=f"dislike|{link}")]
+async def send_news(context, entry):
+    global next_id
+    # assign a short ID for this article
+    news_id = str(next_id)
+    next_id += 1
+    news_map[news_id] = entry.link
+
+    # determine if it's a trailer
+    is_trailer = any(kw in entry.title.lower() for kw in ["tráiler", "trailer", "gameplay trailer"])
+    # try to extract an image
+    photo_url = None
+    if entry.get("media_content"):
+        photo_url = entry.media_content[0].get("url")
+    elif entry.get("enclosures"):
+        photo_url = entry.enclosures[0].get("url")
+
+    # build buttons using the short news_id
+    buttons = [
+        [InlineKeyboardButton("📖 Leer noticia", url=entry.link)],
+        [
+          InlineKeyboardButton(f"👍 {votes.get(news_id,{}).get('like',0)}", callback_data=f"like|{news_id}"),
+          InlineKeyboardButton(f"👎 {votes.get(news_id,{}).get('dislike',0)}", callback_data=f"dislike|{news_id}")
+        ]
     ]
-
     if is_trailer:
-        keyboard.insert(1, [InlineKeyboardButton("🎬 Ver Tráiler Oficial", url=link)])
+        buttons.insert(1, [InlineKeyboardButton("🎬 Ver Tráiler Oficial", url=entry.link)])
 
-    reply_markup = InlineKeyboardMarkup(keyboard)
-    hashtags = "#Gamepulse360 #NoticiasGamer"
-    message = f"🎮 *{title}*\n\n{hashtags}"
+    reply_markup = InlineKeyboardMarkup(buttons)
+    caption = f"🎮 *{entry.title}*\n\n{entry.summary[:200]}...\n\n#Gamepulse360 #NoticiasGamer"
 
     try:
-        await context.bot.send_message(
-            chat_id=CHANNEL_USERNAME,
-            text=message,
-            parse_mode=telegram.constants.ParseMode.MARKDOWN,
-            reply_markup=reply_markup,
-            disable_web_page_preview=False
-        )
+        if photo_url:
+            await context.bot.send_photo(
+                chat_id=CHANNEL_USERNAME,
+                photo=photo_url,
+                caption=caption,
+                parse_mode=telegram.constants.ParseMode.MARKDOWN,
+                reply_markup=reply_markup
+            )
+        else:
+            await context.bot.send_message(
+                chat_id=CHANNEL_USERNAME,
+                text=caption,
+                parse_mode=telegram.constants.ParseMode.MARKDOWN,
+                reply_markup=reply_markup,
+                disable_web_page_preview=False
+            )
     except Exception as e:
         print(f"Error al enviar noticia: {e}")
 
@@ -81,10 +110,7 @@ async def check_feeds(context):
         feed = feedparser.parse(feed_url)
         for entry in feed.entries[:5]:
             if entry.link not in sent_articles:
-                title = entry.title
-                link = entry.link
-                is_trailer = any(word in title.lower() for word in ["tráiler", "trailer", "gameplay trailer"])
-                await send_news(context, title, link, is_trailer)
+                await send_news(context, entry)
                 sent_articles.add(entry.link)
                 new_article_sent = True
     if not new_article_sent:
@@ -96,12 +122,11 @@ async def check_feeds(context):
 async def vote_handler(update, context):
     query = update.callback_query
     await query.answer()
-    vote_type, link = query.data.split("|")
-    if link not in votes:
-        votes[link] = {"like": 0, "dislike": 0}
-
-    votes[link][vote_type] += 1
-    print(f"Votos para {link}: {votes[link]}")
+    vote_type, news_id = query.data.split("|", 1)
+    if news_id not in votes:
+        votes[news_id] = {"like": 0, "dislike": 0}
+    votes[news_id][vote_type] += 1
+    print(f"Votos para {news_map.get(news_id)}: {votes[news_id]}")
 
 def main():
     application = ApplicationBuilder().token(BOT_TOKEN).build()
