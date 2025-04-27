@@ -104,10 +104,11 @@ async def vote_handler(update, context):
     print(f"Votos para {link}: {votes[link]}")
 
 def main():
-    application = ApplicationBuilder().token(BOT_TOKEN).job_queue(JobQueue()).build()
+    application = ApplicationBuilder().token(BOT_TOKEN).build()
 
     application.add_handler(CallbackQueryHandler(vote_handler))
 
+    # Activas job_queue después de build()
     job_queue = application.job_queue
     job_queue.run_repeating(check_feeds, interval=600, first=10)  # cada 10 minutos
 
