@@ -219,7 +219,6 @@ async def check_feeds(context):
         for entry in feed.entries[:5]:
             if entry.link not in sent_articles:
                 await send_news(context, entry)
-                sent_articles.add(entry.link)
                 new_article_sent = True
 
     if not new_article_sent:
