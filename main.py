@@ -56,6 +56,23 @@ async def send_news(context, entry):
         platform_label = ''
         tag = ''
 
+    # assign platform icon
+    if platform_label == 'PLAYSTATION':
+        icon = '🎮'
+    elif platform_label == 'XBOX':
+        icon = '🟢'
+    elif platform_label.startswith('NINTENDO'):
+        icon = '🍄'
+    else:
+        icon = ''
+
+    # determine if it's an upcoming announcement or release
+    title_lower = entry.title.lower()
+    if any(kw in title_lower for kw in ["anunci", "lanzamiento", "próximo", "proximo"]):
+        special_tag = "#ProximoLanzamiento"
+    else:
+        special_tag = "#Gamepulse360 #NoticiasGamer"
+
     # detect media URLs
     video_url = None
     photo_url = None
@@ -77,7 +94,11 @@ async def send_news(context, entry):
                 photo_url = enc.get("url")
 
     # build caption
-    caption = f"*{platform_label}* 🎮 *{entry.title}*\n\n#Gamepulse360 {tag} #NoticiasGamer"
+    caption = (
+        f"{icon} *{platform_label}*\n\n"
+        f"*{entry.title}*\n\n"
+        f"{special_tag} {tag}"
+    )
 
     try:
         if video_url:
