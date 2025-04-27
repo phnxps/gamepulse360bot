@@ -6,8 +6,8 @@ from datetime import datetime, timedelta
 import random
 
 # Variables de entorno
-BOT_TOKEN = os.getenv("7722735338:AAHQVQxwvW7VlKjSBM74t9rvrcMbnu8iQRA")
-CHANNEL_USERNAME = os.getenv("@Gamepulse360")
+BOT_TOKEN = os.getenv("BOT_TOKEN")
+CHANNEL_USERNAME = os.getenv("CHANNEL_USERNAME")
 
 # Bot de Telegram
 bot = telegram.Bot(token=BOT_TOKEN)
@@ -32,35 +32,37 @@ CURIOSIDADES = [
 sent_articles = set()
 last_curiosity_sent = datetime.now() - timedelta(hours=6)
 
+async def check_news():
+    global last_curiosity_sent
+    for feed_url in RSS_FEEDS:
+        feed = feedparser.parse(feed_url)
+        for entry in feed.entries[:5]:
+            if entry.link not in sent_articles:
+                title = entry.title
+                link = entry.link
+                message = f"🎮 *{title}*\n\n➡️ [Leer Noticia Completa]({link})\n\n#Gamepulse360 #NoticiasGamer"
+                try:
+                    await bot.send_message(chat_id=CHANNEL_USERNAME, text=message, parse_mode=telegram.constants.ParseMode.MARKDOWN, disable_web_page_preview=False)
+                    sent_articles.add(entry.link)
+                    print(f"Enviado: {title}")
+                    await asyncio.sleep(10)
+                except Exception as e:
+                    print(f"Error enviando noticia: {e}")
+
+    # Si no hay noticias nuevas, mandar curiosidad cada 6 horas
+    now = datetime.now()
+    if now - last_curiosity_sent > timedelta(hours=6):
+        curiosity = random.choice(CURIOSIDADES)
+        try:
+            await bot.send_message(chat_id=CHANNEL_USERNAME, text=f"🕹️ *Curiosidad Gamer*\n{curiosity}\n\n#Gamepulse360 #DatoGamer", parse_mode=telegram.constants.ParseMode.MARKDOWN)
+            print("Curiosidad enviada.")
+        except Exception as e:
+            print(f"Error enviando curiosidad: {e}")
+        last_curiosity_sent = now
+
 async def main():
     while True:
-        for feed_url in RSS_FEEDS:
-            feed = feedparser.parse(feed_url)
-            for entry in feed.entries[:5]:
-                if entry.link not in sent_articles:
-                    title = entry.title
-                    link = entry.link
-                    message = f"🎮 *{title}*\n\n➡️ [Leer Noticia Completa]({link})\n\n#Gamepulse360 #NoticiasGamer"
-                    try:
-                        await bot.send_message(chat_id=CHANNEL_USERNAME, text=message, parse_mode=telegram.constants.ParseMode.MARKDOWN, disable_web_page_preview=False)
-                        sent_articles.add(entry.link)
-                        print(f"Enviado: {title}")
-                        await asyncio.sleep(10)
-                    except Exception as e:
-                        print(f"Error enviando noticia: {e}")
-
-# Si no hay noticias nuevas, mandar curiosidad cada 6 horas
-now = datetime.now()
-if now - last_curiosity_sent > timedelta(hours=6):
-    curiosity = random.choice(CURIOSIDADES)
-    global last_curiosity_sent  # <-- Pon esto aquí, justo antes de modificar la variable
-    try:
-        await bot.send_message(chat_id=CHANNEL_USERNAME, text=f"🕹️ *Curiosidad Gamer*\n{curiosity}\n\n#Gamepulse360 #DatoGamer", parse_mode=telegram.constants.ParseMode.MARKDOWN)
-        print("Curiosidad enviada.")
-    except Exception as e:
-        print(f"Error enviando curiosidad: {e}")
-    last_curiosity_sent = now
-
+        await check_news()
         await asyncio.sleep(600)  # Esperar 10 minutos antes de volver a revisar
 
 if __name__ == "__main__":
