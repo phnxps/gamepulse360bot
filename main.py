@@ -104,7 +104,7 @@ async def vote_handler(update, context):
     print(f"Votos para {link}: {votes[link]}")
 
 def main():
-    application = ApplicationBuilder().token(BOT_TOKEN).build()
+    application = ApplicationBuilder().token(BOT_TOKEN).job_queue(JobQueue()).build()
 
     application.add_handler(CallbackQueryHandler(vote_handler))
 
