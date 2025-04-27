@@ -2,25 +2,21 @@ import os
 import feedparser
 import telegram
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
-from telegram.ext import Application, CallbackQueryHandler
-import asyncio
+from telegram.ext import ApplicationBuilder, CallbackQueryHandler, JobQueue
 from datetime import datetime, timedelta
 import random
 
-# Variables de entorno
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 CHANNEL_USERNAME = os.getenv("CHANNEL_USERNAME")
 
-# Feeds de noticias oficiales
 RSS_FEEDS = [
     'https://blog.playstation.com/feed/',
     'https://news.xbox.com/en-us/feed/',
-    'https://www.nintendo.com/news/rss',  # Nintendo oficial
-    'https://www.ign.com/rss',             # IGN
-    'https://vandal.elespanol.com/xml/rss/6/0.1/vandal.xml',  # Vandal Noticias
+    'https://www.nintendo.com/news/rss',
+    'https://www.ign.com/rss',
+    'https://vandal.elespanol.com/xml/rss/6/0.1/vandal.xml',
 ]
 
-# Curiosidades gamer
 CURIOSIDADES = [
     "La PlayStation nació tras un fallo con Nintendo. 🎮",
     "El primer easter egg fue en Adventure (1979). 🚀",
@@ -34,32 +30,26 @@ CURIOSIDADES = [
     "La primera consola portátil fue la Game Boy (1989). 📺",
 ]
 
-# Guardamos las noticias enviadas para no repetir
 sent_articles = set()
 last_curiosity_sent = datetime.now() - timedelta(hours=6)
-
-# Diccionario para contar likes y dislikes
 votes = {}
 
-async def send_news(bot, title, link, is_trailer=False):
+async def send_news(context, title, link, is_trailer=False):
     keyboard = [
         [InlineKeyboardButton("📖 Leer noticia", url=link)],
-        [
-            InlineKeyboardButton("👍 0", callback_data=f"like_{link}"),
-            InlineKeyboardButton("👎 0", callback_data=f"dislike_{link}")
-        ]
+        [InlineKeyboardButton("👍 0", callback_data=f"like|{link}"),
+         InlineKeyboardButton("👎 0", callback_data=f"dislike|{link}")]
     ]
 
     if is_trailer:
         keyboard.insert(1, [InlineKeyboardButton("🎬 Ver Tráiler Oficial", url=link)])
 
     reply_markup = InlineKeyboardMarkup(keyboard)
-
     hashtags = "#Gamepulse360 #NoticiasGamer"
     message = f"🎮 *{title}*\n\n{hashtags}"
 
     try:
-        await bot.send_message(
+        await context.bot.send_message(
             chat_id=CHANNEL_USERNAME,
             text=message,
             parse_mode=telegram.constants.ParseMode.MARKDOWN,
@@ -67,89 +57,62 @@ async def send_news(bot, title, link, is_trailer=False):
             disable_web_page_preview=False
         )
     except Exception as e:
-        print(f"Error al enviar la noticia: {e}")
+        print(f"Error al enviar noticia: {e}")
 
-async def send_curiosity(bot):
+async def send_curiosity(context):
     curiosity = random.choice(CURIOSIDADES)
     hashtags = "#Gamepulse360 #DatoGamer"
     message = f"🕹️ *Curiosidad Gamer*\n{curiosity}\n\n{hashtags}"
     try:
-        await bot.send_message(
+        await context.bot.send_message(
             chat_id=CHANNEL_USERNAME,
             text=message,
             parse_mode=telegram.constants.ParseMode.MARKDOWN,
             disable_web_page_preview=False
         )
     except Exception as e:
-        print(f"Error al enviar la curiosidad: {e}")
+        print(f"Error al enviar curiosidad: {e}")
 
-async def check_feeds(bot):
+async def check_feeds(context):
     global last_curiosity_sent
     new_article_sent = False
 
-    try:
-        for feed_url in RSS_FEEDS:
-            feed = feedparser.parse(feed_url)
-            for entry in feed.entries[:5]:
-                if entry.link not in sent_articles:
-                    title = entry.title
-                    link = entry.link
-
-                    is_trailer = any(keyword in title.lower() for keyword in ["tráiler", "trailer", "launch trailer", "gameplay trailer"])
-                    await send_news(bot, title, link, is_trailer)
-
-                    sent_articles.add(entry.link)
-                    new_article_sent = True
-                    print(f"Enviado: {title}")
-                    await asyncio.sleep(10)
-
-        if not new_article_sent:
-            now = datetime.now()
-            if now - last_curiosity_sent > timedelta(hours=6):
-                await send_curiosity(bot)
-                last_curiosity_sent = now
-    except Exception as e:
-        print(f"Error al procesar los feeds: {e}")
+    for feed_url in RSS_FEEDS:
+        feed = feedparser.parse(feed_url)
+        for entry in feed.entries[:5]:
+            if entry.link not in sent_articles:
+                title = entry.title
+                link = entry.link
+                is_trailer = any(word in title.lower() for word in ["tráiler", "trailer", "gameplay trailer"])
+                await send_news(context, title, link, is_trailer)
+                sent_articles.add(entry.link)
+                new_article_sent = True
+    if not new_article_sent:
+        now = datetime.now()
+        if now - last_curiosity_sent > timedelta(hours=6):
+            await send_curiosity(context)
+            last_curiosity_sent = now
 
 async def vote_handler(update, context):
     query = update.callback_query
     await query.answer()
-
-    vote_type, link = query.data.split("_", 1)
-
-    # Se usa el enlace como clave, para asegurar que los datos sean válidos
+    vote_type, link = query.data.split("|")
     if link not in votes:
         votes[link] = {"like": 0, "dislike": 0}
 
-    # Aumenta el contador dependiendo del voto
-    if vote_type == "like":
-        votes[link]["like"] += 1
-    elif vote_type == "dislike":
-        votes[link]["dislike"] += 1
+    votes[link][vote_type] += 1
+    print(f"Votos para {link}: {votes[link]}")
 
-    print(f"Votos para {link}: {votes[link]}")  # Esto solo lo ves en Railway logs
+def main():
+    application = ApplicationBuilder().token(BOT_TOKEN).build()
 
-async def main():
-    try:
-        # Inicializa la aplicación con el token del bot
-        application = Application.builder().token(BOT_TOKEN).build()
+    application.add_handler(CallbackQueryHandler(vote_handler))
 
-        # Agregar el manejador de los votos
-        application.add_handler(CallbackQueryHandler(vote_handler))
+    job_queue = application.job_queue
+    job_queue.run_repeating(check_feeds, interval=600, first=10)  # cada 10 minutos
 
-        # Función para consultar los feeds y publicarlos
-        async def job():
-            while True:
-                await check_feeds(application.bot)
-                await asyncio.sleep(600)  # 10 minutos
-
-        # Inicia el bot y mantiene el ciclo de eventos
-        await application.run_polling()
-
-    except Exception as e:
-        print(f"Error al iniciar la aplicación: {e}")
+    print("Bot iniciado correctamente.")
+    application.run_polling()
 
 if __name__ == "__main__":
-    import logging
-    logging.basicConfig(level=logging.INFO)
-    asyncio.run(main())  # Usa asyncio.run() correctamente
+    main()
