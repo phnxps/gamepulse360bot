@@ -1,8 +1,8 @@
 import os
 import feedparser
 import telegram
-from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
-from telegram.ext import Application, CallbackQueryHandler, ContextTypes
+from telegram import InlineKeyboardButton, InlineKeyboardMarkup
+from telegram.ext import Application, CallbackQueryHandler
 import asyncio
 from datetime import datetime, timedelta
 import random
@@ -102,7 +102,7 @@ async def check_feeds(bot):
             await send_curiosity(bot)
             last_curiosity_sent = now
 
-async def vote_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def vote_handler(update, context):
     query = update.callback_query
     await query.answer()
 
