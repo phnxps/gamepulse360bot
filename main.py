@@ -6,8 +6,8 @@ from datetime import datetime, timedelta
 import random
 
 # Variables de entorno
-BOT_TOKEN = os.getenv("BOT_TOKEN")
-CHANNEL_USERNAME = os.getenv("CHANNEL_USERNAME")
+BOT_TOKEN = os.getenv("7722735338:AAHQVQxwvW7VlKjSBM74t9rvrcMbnu8iQRA")
+CHANNEL_USERNAME = os.getenv("@Gamepulse360")
 
 # Bot de Telegram
 bot = telegram.Bot(token=BOT_TOKEN)
