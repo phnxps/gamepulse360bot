@@ -14,11 +14,17 @@ BOT_TOKEN = os.getenv("BOT_TOKEN")
 CHANNEL_USERNAME = os.getenv("CHANNEL_USERNAME")
 
 RSS_FEEDS = [
-    'https://blog.playstation.com/feed/',
-    'https://news.xbox.com/en-us/feed/',
-    'https://www.nintendo.com/news/rss',
-    'https://www.ign.com/rss',
-    'https://vandal.elespanol.com/xml/rss/6/0.1/vandal.xml',
+    'https://vandal.elespanol.com/rss/',
+    'https://www.3djuegos.com/rss/',
+    'https://www.hobbyconsolas.com/categoria/novedades/rss',
+    'https://www.vidaextra.com/feed',
+    'https://www.nintenderos.com/feed',
+    'https://as.com/meristation/portada/rss.xml',
+    'https://blog.es.playstation.com/',
+    'https://www.nintendo.com/es-es/Noticias/Noticias-y-novedades-11145.html?srsltid=AfmBOoq7KUJIK6DdMAFbXGy8xQLj5qbGrlvhLHxfxYkM-2AgoKvKLvvW',
+    'https://news.xbox.com/es-latam/',
+    
+
 ]
 
 CURIOSIDADES = [
