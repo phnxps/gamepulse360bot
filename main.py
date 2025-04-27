@@ -20,9 +20,9 @@ RSS_FEEDS = [
     'https://www.vidaextra.com/feed',
     'https://www.nintenderos.com/feed',
     'https://as.com/meristation/portada/rss.xml',
-    'https://blog.es.playstation.com/',
-    'https://www.nintendo.com/es-es/Noticias/Noticias-y-novedades-11145.html?srsltid=AfmBOoq7KUJIK6DdMAFbXGy8xQLj5qbGrlvhLHxfxYkM-2AgoKvKLvvW',
-    'https://news.xbox.com/es-latam/',
+    'https://blog.es.playstation.com/feed',
+    'https://www.nintendo.com/es/news/rss.xml',  
+    'https://news.xbox.com/es-latam/feed/',
     
 
 ]
@@ -51,6 +51,17 @@ async def send_news(context, entry):
     next_id += 1
     news_map[news_id] = entry.link
 
+    # determine platform
+    link = entry.link.lower()
+    if 'playstation' in link:
+        tag = '#PlayStation'
+    elif 'xbox' in link:
+        tag = '#Xbox'
+    elif 'nintendo' in link:
+        tag = '#Nintendo'
+    else:
+        tag = ''
+
     # determine if it's a trailer
     is_trailer = any(kw in entry.title.lower() for kw in ["tráiler", "trailer", "gameplay trailer"])
     # try to extract an image
@@ -72,7 +83,9 @@ async def send_news(context, entry):
         buttons.insert(1, [InlineKeyboardButton("🎬 Ver Tráiler Oficial", url=entry.link)])
 
     reply_markup = InlineKeyboardMarkup(buttons)
-    caption = f"🎮 *{entry.title}*\n\n{entry.summary[:200]}...\n\n#Gamepulse360 #NoticiasGamer"
+
+    # caption without summary
+    caption = f"🎮 *{entry.title}*\n\n#Gamepulse360 {tag} #NoticiasGamer"
 
     try:
         if photo_url:
