@@ -1,14 +1,19 @@
 import os
 import feedparser
-import telegram
-from telegram import InlineKeyboardButton, InlineKeyboardMarkup
-from telegram.ext import ApplicationBuilder, CallbackQueryHandler, JobQueue
-from datetime import datetime, timedelta
 import random
+from datetime import datetime, timedelta
 
+from telegram import InlineKeyboardButton, InlineKeyboardMarkup
+from telegram.ext import (
+    ApplicationBuilder,
+    CallbackQueryHandler,
+)
+
+# Variables de entorno
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 CHANNEL_USERNAME = os.getenv("CHANNEL_USERNAME")
 
+# Feeds y curiosidades
 RSS_FEEDS = [
     'https://blog.playstation.com/feed/',
     'https://news.xbox.com/en-us/feed/',
@@ -16,104 +21,81 @@ RSS_FEEDS = [
     'https://www.ign.com/rss',
     'https://vandal.elespanol.com/xml/rss/6/0.1/vandal.xml',
 ]
-
 CURIOSIDADES = [
     "La PlayStation nació tras un fallo con Nintendo. 🎮",
     "El primer easter egg fue en Adventure (1979). 🚀",
     "Mario se iba a llamar 'Jumpman'. 🍄",
-    "GTA V es el producto más rentable del entretenimiento. 💰",
-    "La Nintendo 64 introdujo el primer joystick analógico. 🎮",
-    "La Switch es la consola híbrida más vendida de la historia. 🔥",
-    "La PlayStation 2 es la consola más vendida de todos los tiempos. 🥇",
-    "En Japón, 'Kirby' es visto como un símbolo de felicidad. 🌟",
-    "Zelda: Breath of the Wild reinventó los mundos abiertos. 🧭",
-    "La primera consola portátil fue la Game Boy (1989). 📺",
+    # ... (más curiosidades) ...
 ]
 
 sent_articles = set()
-last_curiosity_sent = datetime.now() - timedelta(hours=6)
+last_curiosity = datetime.now() - timedelta(hours=6)
 votes = {}
 
-async def send_news(context, title, link, is_trailer=False):
+async def send_news(context, title, link, is_trailer):
     keyboard = [
-        [InlineKeyboardButton("📖 Leer noticia", url=link)],
-        [InlineKeyboardButton("👍 0", callback_data=f"like|{link}"),
-         InlineKeyboardButton("👎 0", callback_data=f"dislike|{link}")]
+        [ InlineKeyboardButton("📖 Leer noticia", url=link) ],
+        [
+            InlineKeyboardButton(f"👍 {votes.get(link, {}).get('like',0)}", callback_data=f"like|{link}"),
+            InlineKeyboardButton(f"👎 {votes.get(link, {}).get('dislike',0)}", callback_data=f"dislike|{link}")
+        ]
     ]
-
     if is_trailer:
-        keyboard.insert(1, [InlineKeyboardButton("🎬 Ver Tráiler Oficial", url=link)])
+        keyboard.insert(1, [ InlineKeyboardButton("🎬 Ver Tráiler Oficial", url=link) ])
 
-    reply_markup = InlineKeyboardMarkup(keyboard)
-    hashtags = "#Gamepulse360 #NoticiasGamer"
-    message = f"🎮 *{title}*\n\n{hashtags}"
-
-    try:
-        await context.bot.send_message(
-            chat_id=CHANNEL_USERNAME,
-            text=message,
-            parse_mode=telegram.constants.ParseMode.MARKDOWN,
-            reply_markup=reply_markup,
-            disable_web_page_preview=False
-        )
-    except Exception as e:
-        print(f"Error al enviar noticia: {e}")
+    await context.bot.send_message(
+        chat_id=CHANNEL_USERNAME,
+        text=f"🎮 *{title}*\n\n#Gamepulse360 #NoticiasGamer",
+        parse_mode="Markdown",
+        reply_markup=InlineKeyboardMarkup(keyboard),
+        disable_web_page_preview=False
+    )
 
 async def send_curiosity(context):
+    global last_curiosity
     curiosity = random.choice(CURIOSIDADES)
-    hashtags = "#Gamepulse360 #DatoGamer"
-    message = f"🕹️ *Curiosidad Gamer*\n{curiosity}\n\n{hashtags}"
-    try:
-        await context.bot.send_message(
-            chat_id=CHANNEL_USERNAME,
-            text=message,
-            parse_mode=telegram.constants.ParseMode.MARKDOWN,
-            disable_web_page_preview=False
-        )
-    except Exception as e:
-        print(f"Error al enviar curiosidad: {e}")
+    await context.bot.send_message(
+        chat_id=CHANNEL_USERNAME,
+        text=f"🕹️ *Curiosidad Gamer*\n{curiosity}\n\n#Gamepulse360 #DatoGamer",
+        parse_mode="Markdown"
+    )
+    last_curiosity = datetime.now()
 
 async def check_feeds(context):
-    global last_curiosity_sent
-    new_article_sent = False
+    global sent_articles, last_curiosity
+    new_sent = False
 
-    for feed_url in RSS_FEEDS:
-        feed = feedparser.parse(feed_url)
+    for url in RSS_FEEDS:
+        feed = feedparser.parse(url)
         for entry in feed.entries[:5]:
             if entry.link not in sent_articles:
-                title = entry.title
-                link = entry.link
-                is_trailer = any(word in title.lower() for word in ["tráiler", "trailer", "gameplay trailer"])
-                await send_news(context, title, link, is_trailer)
+                is_trailer = any(k in entry.title.lower() for k in ["tráiler","trailer"])
+                await send_news(context, entry.title, entry.link, is_trailer)
                 sent_articles.add(entry.link)
-                new_article_sent = True
-    if not new_article_sent:
-        now = datetime.now()
-        if now - last_curiosity_sent > timedelta(hours=6):
-            await send_curiosity(context)
-            last_curiosity_sent = now
+                new_sent = True
+
+    if not new_sent and datetime.now() - last_curiosity > timedelta(hours=6):
+        await send_curiosity(context)
 
 async def vote_handler(update, context):
     query = update.callback_query
     await query.answer()
-    vote_type, link = query.data.split("|")
+    typ, link = query.data.split("|",1)
     if link not in votes:
-        votes[link] = {"like": 0, "dislike": 0}
-
-    votes[link][vote_type] += 1
-    print(f"Votos para {link}: {votes[link]}")
+        votes[link] = {"like":0,"dislike":0}
+    votes[link][typ] += 1
+    print(f"Votos {link}: {votes[link]}")
 
 def main():
-    application = ApplicationBuilder().token(BOT_TOKEN).build()
+    app = ApplicationBuilder().token(BOT_TOKEN).build()
+    app.add_handler(CallbackQueryHandler(vote_handler))
 
-    application.add_handler(CallbackQueryHandler(vote_handler))
+    # se crea automáticamente job_queue cuando instalas el extra
+    jq = app.job_queue
+    jq.run_repeating(check_feeds, interval=600, first=10)
 
-    # Activas job_queue después de build()
-    job_queue = application.job_queue
-    job_queue.run_repeating(check_feeds, interval=600, first=10)  # cada 10 minutos
-
-    print("Bot iniciado correctamente.")
-    application.run_polling()
+    print("Bot iniciando…")
+    app.run_polling()
 
 if __name__ == "__main__":
     main()
