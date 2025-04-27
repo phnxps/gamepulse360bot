@@ -145,10 +145,10 @@ async def main():
                 await asyncio.sleep(600)  # 10 minutos
 
         # Usamos el método correcto para iniciar el bot
-        await asyncio.gather(application.run_polling(), job())
+        await application.run_polling()
 
     except Exception as e:
         print(f"Error al iniciar la aplicación: {e}")
 
 if __name__ == "__main__":
-    asyncio.get_event_loop().run_until_complete(main())  # Aquí es donde cambiamos el ciclo de eventos.
+    asyncio.get_event_loop().run_until_complete(main())  # Ahora estamos usando `run_until_complete` de asyncio correctamente
