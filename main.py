@@ -5,7 +5,7 @@ from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ApplicationBuilder, CallbackQueryHandler, JobQueue
 from datetime import datetime, timedelta
 import random
-import time
+
 
 # Map short numeric IDs to article URLs
 news_map = {}
@@ -44,9 +44,6 @@ CURIOSIDADES = [
 sent_articles = set()
 last_curiosity_sent = datetime.now() - timedelta(hours=6)
 votes = {}
-
-# Track last check time to only send recent entries
-last_check = datetime.now() - timedelta(minutes=10)
 
 async def send_news(context, entry):
     global next_id
@@ -150,17 +147,10 @@ async def check_feeds(context):
     global last_curiosity_sent, last_check
     now = datetime.now()
     new_article_sent = False
-    # Sólo enviar artículos de las últimas 6 horas
-    threshold = datetime.now() - timedelta(hours=6)
     
     for feed_url in RSS_FEEDS:
         feed = feedparser.parse(feed_url)
         for entry in feed.entries[:5]:
-        # Omitir entradas de más de 6 horas
-        if hasattr(entry, 'published_parsed'):
-            published = datetime.fromtimestamp(time.mktime(entry.published_parsed))
-            if published < threshold:
-                continue
             if entry.link not in sent_articles:
                 await send_news(context, entry)
                 sent_articles.add(entry.link)
