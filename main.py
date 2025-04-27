@@ -60,7 +60,7 @@ last_curiosity_sent = datetime.now() - timedelta(hours=6)
 async def send_news(context, entry):
     if hasattr(entry, 'published_parsed'):
         published = datetime(*entry.published_parsed[:6])
-        if datetime.now() - published > timedelta(hours=6):
+        if published.date() != datetime.now().date():
             return
 
     link = entry.link.lower()
