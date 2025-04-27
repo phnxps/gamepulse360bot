@@ -108,9 +108,11 @@ async def vote_handler(update, context):
 
     vote_type, link = query.data.split("_", 1)
 
+    # Se usa el enlace como clave, para asegurar que los datos sean válidos
     if link not in votes:
         votes[link] = {"like": 0, "dislike": 0}
 
+    # Aumenta el contador dependiendo del voto
     if vote_type == "like":
         votes[link]["like"] += 1
     elif vote_type == "dislike":
@@ -119,19 +121,17 @@ async def vote_handler(update, context):
     print(f"Votos para {link}: {votes[link]}")  # Esto solo lo ves en Railway logs
 
 async def main():
-    # Aquí cambiamos para usar la nueva inicialización
+    # Inicialización correcta para la versión v20+ de python-telegram-bot
     application = Application.builder().token(BOT_TOKEN).build()
-    
-    # Inicia la aplicación de Telegram
-    await application.initialize()
-
     application.add_handler(CallbackQueryHandler(vote_handler))
 
+    # Función principal que se ejecutará cada 10 minutos
     async def job():
         while True:
             await check_feeds(application.bot)
             await asyncio.sleep(600)  # 10 minutos
 
+    # Ejecutar todo
     await asyncio.gather(application.start(), job())
 
 if __name__ == "__main__":
