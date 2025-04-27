@@ -21,6 +21,9 @@ RSS_FEEDS = [
     'https://blog.es.playstation.com/feed/',
     'https://www.nintendo.com/es/news/rss.xml',
     'https://news.xbox.com/es-mx/feed/',
+    'https://nintenduo.com/category/noticias/feed/',
+    'https://www.xataka.com/tag/nintendo/rss',
+    'https://www.xataka.com/tag/playstation/rss',
 ]
 
 CURIOSIDADES = [
@@ -205,6 +208,21 @@ async def check_feeds(context):
         if now - last_curiosity_sent > timedelta(hours=6):
             await send_curiosity(context)
             last_curiosity_sent = now
+
+        # Detección automática de eventos especiales
+        today = datetime.now().date()
+        events_today = [entry for entry in sent_articles if any(keyword in entry.lower() for keyword in ["state of play", "nintendo direct", "showcase", "summer game fest", "game awards", "evento especial", "presentation", "conference", "presentación"])]
+        if events_today:
+            try:
+                evento_texto = "🎬 *¡Hoy hay eventos especiales en el mundo gamer!*\n\nPrepárate para seguir todas las novedades. 👾🔥"
+                await context.bot.send_message(
+                    chat_id=CHANNEL_USERNAME,
+                    text=evento_texto,
+                    parse_mode=telegram.constants.ParseMode.MARKDOWN,
+                    disable_web_page_preview=False
+                )
+            except Exception as e:
+                print(f"Error al enviar mensaje de eventos especiales: {e}")
 
 async def send_launch_summary(context):
     if not proximos_lanzamientos:
