@@ -119,7 +119,12 @@ async def vote_handler(update, context):
     print(f"Votos para {link}: {votes[link]}")  # Esto solo lo ves en Railway logs
 
 async def main():
-    application = Application.builder().token(BOT_TOKEN).build()  # Cambié esta línea
+    # Aquí cambiamos para usar la nueva inicialización
+    application = Application.builder().token(BOT_TOKEN).build()
+    
+    # Inicia la aplicación de Telegram
+    await application.initialize()
+
     application.add_handler(CallbackQueryHandler(vote_handler))
 
     async def job():
