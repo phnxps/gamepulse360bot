@@ -49,17 +49,17 @@ async def main():
                     except Exception as e:
                         print(f"Error enviando noticia: {e}")
 
-        # Si no hay noticias nuevas, mandar curiosidad cada 6 horas
-        now = datetime.now()
-        if now - last_curiosity_sent > timedelta(hours=6):
-            curiosity = random.choice(CURIOSIDADES)
-            try:
-                await bot.send_message(chat_id=CHANNEL_USERNAME, text=f"🕹️ *Curiosidad Gamer*\n{curiosity}\n\n#Gamepulse360 #DatoGamer", parse_mode=telegram.constants.ParseMode.MARKDOWN)
-                print("Curiosidad enviada.")
-            except Exception as e:
-                print(f"Error enviando curiosidad: {e}")
-            global last_curiosity_sent
-            last_curiosity_sent = now
+# Si no hay noticias nuevas, mandar curiosidad cada 6 horas
+now = datetime.now()
+if now - last_curiosity_sent > timedelta(hours=6):
+    curiosity = random.choice(CURIOSIDADES)
+    global last_curiosity_sent  # <-- Pon esto aquí, justo antes de modificar la variable
+    try:
+        await bot.send_message(chat_id=CHANNEL_USERNAME, text=f"🕹️ *Curiosidad Gamer*\n{curiosity}\n\n#Gamepulse360 #DatoGamer", parse_mode=telegram.constants.ParseMode.MARKDOWN)
+        print("Curiosidad enviada.")
+    except Exception as e:
+        print(f"Error enviando curiosidad: {e}")
+    last_curiosity_sent = now
 
         await asyncio.sleep(600)  # Esperar 10 minutos antes de volver a revisar
 
