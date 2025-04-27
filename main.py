@@ -1,7 +1,7 @@
 import os
 import feedparser
 import telegram
-from telegram import Bot
+from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ApplicationBuilder
 from datetime import datetime, timedelta
 import random
@@ -30,7 +30,7 @@ CURIOSIDADES = [
     "La Switch es la consola híbrida más vendida de la historia. 🔥",
     "La PlayStation 2 es la consola más vendida de todos los tiempos. 🥇",
     "En Japón, 'Kirby' es visto como un símbolo de felicidad. 🌟",
-    "Zelda: Breath of the Wild reinventó los mundos abiertos. 🧽",
+    "Zelda: Breath of the Wild reinventó los mundos abiertos. 🧭",
     "La primera consola portátil fue la Game Boy (1989). 📺",
 ]
 
@@ -39,37 +39,33 @@ last_curiosity_sent = datetime.now() - timedelta(hours=6)
 
 async def send_news(context, entry):
     link = entry.link.lower()
-    title = entry.title
-
-    # Detect platform
-    if 'playstation' in link or 'playstation' in title.lower():
+    if 'playstation' in link:
         platform_label = 'PLAYSTATION'
-        tag = '#PlayStation'
         icon = '🎮'
-    elif 'switch 2' in link or 'switch-2' in link or 'switch 2' in title.lower():
+        tag = '#PlayStation'
+    elif 'switch 2' in link or 'switch-2' in link:
         platform_label = 'NINTENDO SWITCH 2'
+        icon = '🍄'
         tag = '#NintendoSwitch2'
-        icon = '🍄'
-    elif 'switch' in link or 'switch' in title.lower():
+    elif 'switch' in link:
         platform_label = 'NINTENDO SWITCH'
-        tag = '#NintendoSwitch'
         icon = '🍄'
-    elif 'xbox' in link or 'xbox' in title.lower():
+        tag = '#NintendoSwitch'
+    elif 'xbox' in link:
         platform_label = 'XBOX'
+        icon = '🟢'
         tag = '#Xbox'
-        icon = '🔵'
     else:
         platform_label = 'NOTICIAS GAMER'
-        tag = '#NoticiasGamer'
         icon = '🎮'
+        tag = '#NoticiasGamer'
 
-    # Detect upcoming release
-    special_tag = ''
-    title_lower = title.lower()
-    if any(kw in title_lower for kw in ["anunci", "lanzamiento", "próximo", "proximo", "sale", "disponible", "estrena", "estreno", "estrenar"]):
+    title_lower = entry.title.lower()
+    if any(kw in title_lower for kw in ["anunci", "lanzamiento", "próximo", "proximo", "sale", "disponible", "estrena", "estreno", "estrenará"]):
         special_tag = "#ProximoLanzamiento"
+    else:
+        special_tag = ""
 
-    # Detect media
     photo_url = None
     if entry.get("media_content"):
         for m in entry.media_content:
@@ -82,9 +78,13 @@ async def send_news(context, entry):
                 photo_url = enc.get("url")
                 break
 
-    # Build message
-    tags = " ".join(filter(None, ["#Gamepulse360", tag, special_tag]))
-    caption = f"{icon} *{platform_label}*\n\n*{entry.title}*\n\n{tags}"
+    caption = (
+        f"{icon} *{platform_label}*\n\n"
+        f"*{entry.title}*\n\n"
+        f"{special_tag} {tag}"
+    ).strip()
+
+    button = InlineKeyboardMarkup([[InlineKeyboardButton("📰 Leer noticia completa", url=entry.link)]])
 
     try:
         if photo_url:
@@ -92,22 +92,23 @@ async def send_news(context, entry):
                 chat_id=CHANNEL_USERNAME,
                 photo=photo_url,
                 caption=caption,
-                parse_mode=telegram.constants.ParseMode.MARKDOWN
+                parse_mode=telegram.constants.ParseMode.MARKDOWN,
+                reply_markup=button
             )
         else:
             await context.bot.send_message(
                 chat_id=CHANNEL_USERNAME,
                 text=caption,
                 parse_mode=telegram.constants.ParseMode.MARKDOWN,
-                disable_web_page_preview=True
+                disable_web_page_preview=True,
+                reply_markup=button
             )
     except Exception as e:
         print(f"Error al enviar noticia: {e}")
 
 async def send_curiosity(context):
     curiosity = random.choice(CURIOSIDADES)
-    hashtags = "#Gamepulse360 #DatoGamer"
-    message = f"🕹️ *Curiosidad Gamer*\n{curiosity}\n\n{hashtags}"
+    message = f"🕹️ *Curiosidad Gamer*\n{curiosity}\n\n#Gamepulse360 #DatoGamer"
     try:
         await context.bot.send_message(
             chat_id=CHANNEL_USERNAME,
@@ -129,6 +130,7 @@ async def check_feeds(context):
                 await send_news(context, entry)
                 sent_articles.add(entry.link)
                 new_article_sent = True
+
     if not new_article_sent:
         now = datetime.now()
         if now - last_curiosity_sent > timedelta(hours=6):
