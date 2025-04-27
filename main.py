@@ -24,6 +24,7 @@ RSS_FEEDS = [
     'https://nintenduo.com/category/noticias/feed/',
     'https://www.xataka.com/tag/nintendo/rss',
     'https://www.xataka.com/tag/playstation/rss',
+    'https://www.laps4.com/feed/',
 ]
 
 CURIOSIDADES = [
@@ -57,6 +58,13 @@ CURIOSIDADES = [
 ]
 
 sent_articles = set()
+SENT_ARTICLES_FILE = 'sent_articles.txt'
+
+# Cargar los artículos ya enviados
+if os.path.exists(SENT_ARTICLES_FILE):
+    with open(SENT_ARTICLES_FILE, 'r') as f:
+        sent_articles = set(f.read().splitlines())
+
 proximos_lanzamientos = []
 last_curiosity_sent = datetime.now() - timedelta(hours=6)
 
@@ -89,6 +97,14 @@ async def send_news(context, entry):
         tag = '#NoticiasGamer'
 
     title_lower = entry.title.lower()
+
+    link_lower = entry.link.lower()
+
+    # Detección de análisis de Laps4 como ReviewGamer
+    if "laps4.com" in link_lower and "análisis" in title_lower:
+        special_tags.append("#ReviewGamer")
+        emoji_special = '📝'
+
     special_tags = []
     emoji_special = ''
 
@@ -173,6 +189,9 @@ async def send_news(context, entry):
                 disable_web_page_preview=False,
                 reply_markup=button
             )
+        # Añadir la noticia enviada al archivo
+        with open(SENT_ARTICLES_FILE, 'a') as f:
+            f.write(entry.link + '\n')
     except Exception as e:
         print(f"Error al enviar noticia: {e}")
 
