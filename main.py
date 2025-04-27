@@ -1,14 +1,10 @@
 import os
 import feedparser
 import telegram
-from telegram import InlineKeyboardButton, InlineKeyboardMarkup
-from telegram.ext import ApplicationBuilder, CallbackQueryHandler, JobQueue
+from telegram import Bot
+from telegram.ext import ApplicationBuilder
 from datetime import datetime, timedelta
 import random
-
-# Map short numeric IDs to article URLs
-news_map = {}
-next_id = 0
 
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 CHANNEL_USERNAME = os.getenv("CHANNEL_USERNAME")
@@ -20,11 +16,9 @@ RSS_FEEDS = [
     'https://www.vidaextra.com/feed',
     'https://www.nintenderos.com/feed',
     'https://as.com/meristation/portada/rss.xml',
-    'https://blog.es.playstation.com/',
-    'https://www.nintendo.com/es-es/Noticias/Noticias-y-novedades-11145.html?srsltid=AfmBOoq7KUJIK6DdMAFbXGy8xQLj5qbGrlvhLHxfxYkM-2AgoKvKLvvW',
-    'https://news.xbox.com/es-latam/',
-    
-
+    'https://blog.es.playstation.com/feed/',
+    'https://www.nintendo.com/es/news/rss.xml',  
+    'https://news.xbox.com/es-mx/feed/',
 ]
 
 CURIOSIDADES = [
@@ -42,53 +36,69 @@ CURIOSIDADES = [
 
 sent_articles = set()
 last_curiosity_sent = datetime.now() - timedelta(hours=6)
-votes = {}
 
 async def send_news(context, entry):
-    global next_id
-    # assign a short ID for this article
-    news_id = str(next_id)
-    next_id += 1
-    news_map[news_id] = entry.link
+    # determine platform for label and hashtag
+    link = entry.link.lower()
+    if 'playstation' in link:
+        platform_label = 'PLAYSTATION'
+        tag = '#PlayStation'
+    elif 'switch 2' in link or 'switch-2' in link:
+        platform_label = 'NINTENDO SWITCH 2'
+        tag = '#NintendoSwitch2'
+    elif 'switch' in link:
+        platform_label = 'NINTENDO SWITCH'
+        tag = '#NintendoSwitch'
+    elif 'xbox' in link:
+        platform_label = 'XBOX'
+        tag = '#Xbox'
+    else:
+        platform_label = ''
+        tag = ''
 
-    # determine if it's a trailer
-    is_trailer = any(kw in entry.title.lower() for kw in ["tráiler", "trailer", "gameplay trailer"])
-    # try to extract an image
+    # detect media URLs
+    video_url = None
     photo_url = None
     if entry.get("media_content"):
-        photo_url = entry.media_content[0].get("url")
-    elif entry.get("enclosures"):
-        photo_url = entry.enclosures[0].get("url")
+        for m in entry.media_content:
+            mtype = m.get("type", "")
+            if mtype.startswith("video/"):
+                video_url = m.get("url")
+                break
+            if mtype.startswith("image/"):
+                photo_url = m.get("url")
+                break
+    if not photo_url and entry.get("enclosures"):
+        for enc in entry.enclosures:
+            etype = enc.get("type", "")
+            if etype.startswith("video/") and not video_url:
+                video_url = enc.get("url")
+            if etype.startswith("image/") and not photo_url:
+                photo_url = enc.get("url")
 
-    # build buttons using the short news_id
-    buttons = [
-        [InlineKeyboardButton("📖 Leer noticia", url=entry.link)],
-        [
-          InlineKeyboardButton(f"👍 {votes.get(news_id,{}).get('like',0)}", callback_data=f"like|{news_id}"),
-          InlineKeyboardButton(f"👎 {votes.get(news_id,{}).get('dislike',0)}", callback_data=f"dislike|{news_id}")
-        ]
-    ]
-    if is_trailer:
-        buttons.insert(1, [InlineKeyboardButton("🎬 Ver Tráiler Oficial", url=entry.link)])
-
-    reply_markup = InlineKeyboardMarkup(buttons)
-    caption = f"🎮 *{entry.title}*\n\n{entry.summary[:200]}...\n\n#Gamepulse360 #NoticiasGamer"
+    # build caption
+    caption = f"*{platform_label}* 🎮 *{entry.title}*\n\n#Gamepulse360 {tag} #NoticiasGamer"
 
     try:
-        if photo_url:
+        if video_url:
+            await context.bot.send_video(
+                chat_id=CHANNEL_USERNAME,
+                video=video_url,
+                caption=caption,
+                parse_mode=telegram.constants.ParseMode.MARKDOWN
+            )
+        elif photo_url:
             await context.bot.send_photo(
                 chat_id=CHANNEL_USERNAME,
                 photo=photo_url,
                 caption=caption,
-                parse_mode=telegram.constants.ParseMode.MARKDOWN,
-                reply_markup=reply_markup
+                parse_mode=telegram.constants.ParseMode.MARKDOWN
             )
         else:
             await context.bot.send_message(
                 chat_id=CHANNEL_USERNAME,
                 text=caption,
                 parse_mode=telegram.constants.ParseMode.MARKDOWN,
-                reply_markup=reply_markup,
                 disable_web_page_preview=False
             )
     except Exception as e:
@@ -125,19 +135,8 @@ async def check_feeds(context):
             await send_curiosity(context)
             last_curiosity_sent = now
 
-async def vote_handler(update, context):
-    query = update.callback_query
-    await query.answer()
-    vote_type, news_id = query.data.split("|", 1)
-    if news_id not in votes:
-        votes[news_id] = {"like": 0, "dislike": 0}
-    votes[news_id][vote_type] += 1
-    print(f"Votos para {news_map.get(news_id)}: {votes[news_id]}")
-
 def main():
     application = ApplicationBuilder().token(BOT_TOKEN).build()
-
-    application.add_handler(CallbackQueryHandler(vote_handler))
 
     job_queue = application.job_queue
     job_queue.run_repeating(check_feeds, interval=600, first=10)  # cada 10 minutos
