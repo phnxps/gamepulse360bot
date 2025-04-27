@@ -5,6 +5,8 @@ from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ApplicationBuilder
 from datetime import datetime, timedelta
 import random
+import requests
+from bs4 import BeautifulSoup
 
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 CHANNEL_USERNAME = os.getenv("CHANNEL_USERNAME")
@@ -89,13 +91,23 @@ async def send_news(context, entry):
                 photo_url = enc.get("url")
                 break
 
+    # Scraping if no image found
+    if not photo_url:
+        try:
+            r = requests.get(entry.link, timeout=5)
+            soup = BeautifulSoup(r.text, 'html.parser')
+            og_image = soup.find('meta', property='og:image')
+            if og_image and og_image.get('content'):
+                photo_url = og_image.get('content')
+        except Exception as e:
+            print(f"Error obteniendo imagen por scraping: {e}")
+
     hashtags = " ".join(special_tags + [tag])
 
     caption = (
         f"{icon} *{platform_label}*\n\n"
         f"*{entry.title}*\n\n"
-        f"{hashtags}\n\n"
-        f"━━━━━━━━━━━━━━━"
+        f"{hashtags}"
     ).strip()
 
     button = InlineKeyboardMarkup([[InlineKeyboardButton("📰 Leer noticia completa", url=entry.link)]])
@@ -122,7 +134,7 @@ async def send_news(context, entry):
 
 async def send_curiosity(context):
     curiosity = random.choice(CURIOSIDADES)
-    message = f"🕹️ *Curiosidad Gamer*\n{curiosity}\n\n#Gamepulse360 #DatoGamer\n\n━━━━━━━━━━━━━━━"
+    message = f"🕹️ *Curiosidad Gamer*\n{curiosity}\n\n#Gamepulse360 #DatoGamer"
     try:
         await context.bot.send_message(
             chat_id=CHANNEL_USERNAME,
