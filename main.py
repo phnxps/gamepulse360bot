@@ -17,7 +17,7 @@ RSS_FEEDS = [
     'https://www.nintenderos.com/feed',
     'https://as.com/meristation/portada/rss.xml',
     'https://blog.es.playstation.com/feed/',
-    'https://www.nintendo.com/es/news/rss.xml',  
+    'https://www.nintendo.com/es/news/rss.xml',
     'https://news.xbox.com/es-mx/feed/',
 ]
 
@@ -30,7 +30,7 @@ CURIOSIDADES = [
     "La Switch es la consola híbrida más vendida de la historia. 🔥",
     "La PlayStation 2 es la consola más vendida de todos los tiempos. 🥇",
     "En Japón, 'Kirby' es visto como un símbolo de felicidad. 🌟",
-    "Zelda: Breath of the Wild reinventó los mundos abiertos. 🧭",
+    "Zelda: Breath of the Wild reinventó los mundos abiertos. 🧽",
     "La primera consola portátil fue la Game Boy (1989). 📺",
 ]
 
@@ -38,77 +38,56 @@ sent_articles = set()
 last_curiosity_sent = datetime.now() - timedelta(hours=6)
 
 async def send_news(context, entry):
-    # determine platform for label and hashtag
     link = entry.link.lower()
-    if 'playstation' in link:
+    title = entry.title
+
+    # Detect platform
+    if 'playstation' in link or 'playstation' in title.lower():
         platform_label = 'PLAYSTATION'
         tag = '#PlayStation'
-    elif 'switch 2' in link or 'switch-2' in link:
+        icon = '🎮'
+    elif 'switch 2' in link or 'switch-2' in link or 'switch 2' in title.lower():
         platform_label = 'NINTENDO SWITCH 2'
         tag = '#NintendoSwitch2'
-    elif 'switch' in link:
+        icon = '🍄'
+    elif 'switch' in link or 'switch' in title.lower():
         platform_label = 'NINTENDO SWITCH'
         tag = '#NintendoSwitch'
-    elif 'xbox' in link:
+        icon = '🍄'
+    elif 'xbox' in link or 'xbox' in title.lower():
         platform_label = 'XBOX'
         tag = '#Xbox'
+        icon = '🔵'
     else:
-        platform_label = ''
-        tag = ''
-
-    # assign platform icon
-    if platform_label == 'PLAYSTATION':
+        platform_label = 'NOTICIAS GAMER'
+        tag = '#NoticiasGamer'
         icon = '🎮'
-    elif platform_label == 'XBOX':
-        icon = '🟢'
-    elif platform_label.startswith('NINTENDO'):
-        icon = '🍄'
-    else:
-        icon = ''
 
-    # determine if it's an upcoming announcement or release
-    title_lower = entry.title.lower()
-    if any(kw in title_lower for kw in ["anunci", "lanzamiento", "próximo", "proximo"]):
+    # Detect upcoming release
+    special_tag = ''
+    title_lower = title.lower()
+    if any(kw in title_lower for kw in ["anunci", "lanzamiento", "próximo", "proximo", "sale", "disponible", "estrena", "estreno", "estrenar"]):
         special_tag = "#ProximoLanzamiento"
-    else:
-        special_tag = "#Gamepulse360 #NoticiasGamer"
 
-    # detect media URLs
-    video_url = None
+    # Detect media
     photo_url = None
     if entry.get("media_content"):
         for m in entry.media_content:
-            mtype = m.get("type", "")
-            if mtype.startswith("video/"):
-                video_url = m.get("url")
-                break
-            if mtype.startswith("image/"):
+            if m.get("type", "").startswith("image/"):
                 photo_url = m.get("url")
                 break
     if not photo_url and entry.get("enclosures"):
         for enc in entry.enclosures:
-            etype = enc.get("type", "")
-            if etype.startswith("video/") and not video_url:
-                video_url = enc.get("url")
-            if etype.startswith("image/") and not photo_url:
+            if enc.get("type", "").startswith("image/"):
                 photo_url = enc.get("url")
+                break
 
-    # build caption
-    caption = (
-        f"{icon} *{platform_label}*\n\n"
-        f"*{entry.title}*\n\n"
-        f"{special_tag} {tag}"
-    )
+    # Build message
+    tags = " ".join(filter(None, ["#Gamepulse360", tag, special_tag]))
+    caption = f"{icon} *{platform_label}*\n\n*{entry.title}*\n\n{tags}"
 
     try:
-        if video_url:
-            await context.bot.send_video(
-                chat_id=CHANNEL_USERNAME,
-                video=video_url,
-                caption=caption,
-                parse_mode=telegram.constants.ParseMode.MARKDOWN
-            )
-        elif photo_url:
+        if photo_url:
             await context.bot.send_photo(
                 chat_id=CHANNEL_USERNAME,
                 photo=photo_url,
@@ -120,7 +99,7 @@ async def send_news(context, entry):
                 chat_id=CHANNEL_USERNAME,
                 text=caption,
                 parse_mode=telegram.constants.ParseMode.MARKDOWN,
-                disable_web_page_preview=False
+                disable_web_page_preview=True
             )
     except Exception as e:
         print(f"Error al enviar noticia: {e}")
@@ -160,7 +139,7 @@ def main():
     application = ApplicationBuilder().token(BOT_TOKEN).build()
 
     job_queue = application.job_queue
-    job_queue.run_repeating(check_feeds, interval=600, first=10)  # cada 10 minutos
+    job_queue.run_repeating(check_feeds, interval=600, first=10)
 
     print("Bot iniciado correctamente.")
     application.run_polling()
