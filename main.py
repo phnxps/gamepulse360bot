@@ -150,15 +150,17 @@ async def check_feeds(context):
     global last_curiosity_sent, last_check
     now = datetime.now()
     new_article_sent = False
-
+    # Sólo enviar artículos de las últimas 6 horas
+    threshold = datetime.now() - timedelta(hours=6)
+    
     for feed_url in RSS_FEEDS:
         feed = feedparser.parse(feed_url)
         for entry in feed.entries[:5]:
-            # Skip entries older than the last check
-            if hasattr(entry, 'published_parsed'):
-                published = datetime.fromtimestamp(time.mktime(entry.published_parsed))
-                if published < last_check:
-                    continue
+        # Omitir entradas de más de 6 horas
+        if hasattr(entry, 'published_parsed'):
+            published = datetime.fromtimestamp(time.mktime(entry.published_parsed))
+            if published < threshold:
+                continue
             if entry.link not in sent_articles:
                 await send_news(context, entry)
                 sent_articles.add(entry.link)
@@ -188,7 +190,7 @@ def main():
     job_queue.run_repeating(check_feeds, interval=600, first=10)  # cada 10 minutos
 
     print("Bot iniciado correctamente.")
-    application.run_polling()
+ application.run_polling(drop_pending_updates=True)
 
 if __name__ == "__main__":
     main()
