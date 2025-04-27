@@ -145,10 +145,11 @@ async def main():
                 await asyncio.sleep(600)  # 10 minutos
 
         # Usamos el método correcto para iniciar el bot
-        await application.run_polling()
+        await application.run_polling()  # Esto mantiene el bot corriendo de manera estable
 
     except Exception as e:
         print(f"Error al iniciar la aplicación: {e}")
 
 if __name__ == "__main__":
-    asyncio.get_event_loop().run_until_complete(main())  # Ahora estamos usando `run_until_complete` de asyncio correctamente
+    # Aquí se asegura que se usa el ciclo de eventos correctamente
+    asyncio.get_event_loop().run_until_complete(main())
