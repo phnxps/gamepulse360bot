@@ -32,6 +32,16 @@ CURIOSIDADES = [
     "En Japón, 'Kirby' es visto como un símbolo de felicidad. 🌟",
     "Zelda: Breath of the Wild reinventó los mundos abiertos. 🧭",
     "La primera consola portátil fue la Game Boy (1989). 📺",
+    "Halo fue pensado originalmente como un juego de estrategia en tiempo real. ⚔️",
+    "La saga Pokémon es la franquicia más rentable del mundo. 🧢",
+    "Crash Bandicoot fue desarrollado para rivalizar contra Mario. 🏁",
+    "El primer videojuego de la historia es considerado 'Tennis for Two' de 1958. 🎾",
+    "El control de la Xbox original se apodaba 'The Duke' por su tamaño. 🎮",
+    "Metroid fue uno de los primeros juegos en presentar una protagonista femenina. 🚀",
+    "Sega dejó de fabricar consolas tras el fracaso de Dreamcast. 🌀",
+    "La consola Wii de Nintendo se llamaba inicialmente 'Revolution'. 🔥",
+    "PlayStation 5 tuvo su mayor venta de lanzamiento en Amazon en menos de 12 segundos. 🛒",
+    "El término 'gamer' apareció en revistas especializadas en los 80s. 📖"
 ]
 
 sent_articles = set()
@@ -61,10 +71,11 @@ async def send_news(context, entry):
         tag = '#NoticiasGamer'
 
     title_lower = entry.title.lower()
-    if any(kw in title_lower for kw in ["anunci", "lanzamiento", "próximo", "proximo", "sale", "disponible", "estrena", "estreno", "estrenará"]):
-        special_tag = "#ProximoLanzamiento"
-    else:
-        special_tag = ""
+    special_tags = []
+    if any(kw in title_lower for kw in ["anunci", "lanzamiento", "próximo", "proximo", "sale", "disponible", "estrena", "estreno", "estrenará", "fecha confirmada", "tráiler final", "open beta", "demo", "acceso anticipado", "early access"]):
+        special_tags.append("#ProximoLanzamiento")
+    if any(kw in title_lower for kw in ["análisis", "review", "reseña", "comparativa"]):
+        special_tags.append("#ReviewGamer")
 
     photo_url = None
     if entry.get("media_content"):
@@ -78,10 +89,13 @@ async def send_news(context, entry):
                 photo_url = enc.get("url")
                 break
 
+    hashtags = " ".join(special_tags + [tag])
+
     caption = (
         f"{icon} *{platform_label}*\n\n"
         f"*{entry.title}*\n\n"
-        f"{special_tag} {tag}"
+        f"{hashtags}\n\n"
+        f"━━━━━━━━━━━━━━━"
     ).strip()
 
     button = InlineKeyboardMarkup([[InlineKeyboardButton("📰 Leer noticia completa", url=entry.link)]])
@@ -100,7 +114,7 @@ async def send_news(context, entry):
                 chat_id=CHANNEL_USERNAME,
                 text=caption,
                 parse_mode=telegram.constants.ParseMode.MARKDOWN,
-                disable_web_page_preview=True,
+                disable_web_page_preview=False,
                 reply_markup=button
             )
     except Exception as e:
@@ -108,7 +122,7 @@ async def send_news(context, entry):
 
 async def send_curiosity(context):
     curiosity = random.choice(CURIOSIDADES)
-    message = f"🕹️ *Curiosidad Gamer*\n{curiosity}\n\n#Gamepulse360 #DatoGamer"
+    message = f"🕹️ *Curiosidad Gamer*\n{curiosity}\n\n#Gamepulse360 #DatoGamer\n\n━━━━━━━━━━━━━━━"
     try:
         await context.bot.send_message(
             chat_id=CHANNEL_USERNAME,
