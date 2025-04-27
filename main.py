@@ -144,11 +144,11 @@ async def main():
                 await check_feeds(application.bot)
                 await asyncio.sleep(600)  # 10 minutos
 
-        # Ahora usamos run_polling() para ejecutar el bot
+        # Usamos el método correcto para iniciar el bot
         await asyncio.gather(application.run_polling(), job())
-        
+
     except Exception as e:
         print(f"Error al iniciar la aplicación: {e}")
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    asyncio.get_event_loop().run_until_complete(main())  # Aquí es donde cambiamos el ciclo de eventos.
