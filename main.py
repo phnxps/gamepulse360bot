@@ -5,6 +5,7 @@ from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ApplicationBuilder, CallbackQueryHandler, JobQueue
 from datetime import datetime, timedelta
 import random
+import time
 
 # Map short numeric IDs to article URLs
 news_map = {}
