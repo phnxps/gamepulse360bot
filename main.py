@@ -132,18 +132,21 @@ async def vote_handler(update, context):
 async def main():
     try:
         application = Application.builder().token(BOT_TOKEN).build()
+
+        # Inicia la aplicación correctamente y permite que se ejecute en el ciclo de eventos
+        await application.initialize()
+
         application.add_handler(CallbackQueryHandler(vote_handler))
 
-        # Ejecutar las tareas concurrentemente
+        # Función para consultar los feeds y publicarlos
         async def job():
             while True:
                 await check_feeds(application.bot)
                 await asyncio.sleep(600)  # 10 minutos
 
-        # Usar el método correcto para iniciar el bot
-        await application.initialize()
-        await asyncio.gather(application.run_polling(), job())  # Aquí cambiamos run_polling()
-
+        # Ahora usamos run_polling() para ejecutar el bot
+        await asyncio.gather(application.run_polling(), job())
+        
     except Exception as e:
         print(f"Error al iniciar la aplicación: {e}")
 
