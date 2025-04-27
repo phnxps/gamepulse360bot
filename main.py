@@ -50,6 +50,12 @@ sent_articles = set()
 last_curiosity_sent = datetime.now() - timedelta(hours=6)
 
 async def send_news(context, entry):
+    # Revisar si la noticia es reciente (últimas 6 horas)
+    if hasattr(entry, 'published_parsed'):
+        published = datetime(*entry.published_parsed[:6])
+        if datetime.now() - published > timedelta(hours=6):
+            return
+
     link = entry.link.lower()
     if 'playstation' in link:
         platform_label = 'PLAYSTATION'
@@ -74,8 +80,18 @@ async def send_news(context, entry):
 
     title_lower = entry.title.lower()
     special_tags = []
-    if any(kw in title_lower for kw in ["anunci", "lanzamiento", "próximo", "proximo", "sale", "disponible", "estrena", "estreno", "estrenará", "fecha confirmada", "tráiler final", "open beta", "demo", "acceso anticipado", "early access"]):
+    emoji_special = ''
+
+    if any(kw in title_lower for kw in ["tráiler", "trailer", "avance", "gameplay"]):
+        special_tags.append("#TrailerOficial")
+        emoji_special = '🔥'
+    if any(kw in title_lower for kw in ["gratis", "free", "regalo"]):
+        special_tags.append("#JuegoGratis")
+        emoji_special = '🎁'
+    if any(kw in title_lower for kw in ["anunci", "lanzamiento", "próximo", "proximo", "sale", "disponible", "estrena", "estreno", "estrenará", "fecha confirmada", "tráiler final", "open beta", "demo", "early access"]):
         special_tags.append("#ProximoLanzamiento")
+        if not emoji_special:
+            emoji_special = '🎉'
     if any(kw in title_lower for kw in ["análisis", "review", "reseña", "comparativa"]):
         special_tags.append("#ReviewGamer")
 
@@ -91,7 +107,6 @@ async def send_news(context, entry):
                 photo_url = enc.get("url")
                 break
 
-    # Scraping if no image found
     if not photo_url:
         try:
             r = requests.get(entry.link, timeout=5)
@@ -106,7 +121,7 @@ async def send_news(context, entry):
 
     caption = (
         f"{icon} *{platform_label}*\n\n"
-        f"*{entry.title}*\n\n"
+        f"{emoji_special} *{entry.title}*\n\n"
         f"{hashtags}"
     ).strip()
 
