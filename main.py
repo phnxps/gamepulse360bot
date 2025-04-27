@@ -81,19 +81,31 @@ async def send_news(context, entry):
     special_tags = []
     emoji_special = ''
 
+    # Evento especial detection
+    if any(kw in title_lower for kw in ["state of play", "nintendo direct", "showcase", "summer game fest", "game awards", "evento especial", "presentation", "conference", "presentación"]):
+        special_tags.insert(0, "#EventoEspecial")
+        emoji_special = '🎬'
+
+    # Trailer detection
     if any(kw in title_lower for kw in ["tráiler", "trailer", "avance", "gameplay"]):
         special_tags.append("#TrailerOficial")
-        emoji_special = '🔥'
+        if not emoji_special:
+            emoji_special = '🔥'
+
+    # Free game detection
     if any(kw in title_lower for kw in ["gratis", "free", "regalo"]):
         special_tags.append("#JuegoGratis")
-        emoji_special = '🎁'
+        if not emoji_special:
+            emoji_special = '🎁'
 
-    if any(kw in title_lower for kw in ["anunci", "lanzamiento", "próximo", "proximo", "sale", "disponible", "estrena", "estreno", "estrenará", "fecha confirmada", "tráiler final", "open beta", "demo", "early access"]):
-        if not any(block in title_lower for block in ["mantenimiento", "servidores", "online", "downtime", "actualización de sistema", "patch notes"]):
+    # Proximo lanzamiento detection
+    if any(kw in title_lower for kw in ["anunci", "lanzamiento", "próximo", "proximo", "sale", "disponible", "estrena", "estreno", "estrenará", "fecha confirmada", "open beta", "demo", "early access"]):
+        if not any(block in title_lower for block in ["mantenimiento", "servidores", "online", "downtime", "actualización", "patch notes"]):
             special_tags.append("#ProximoLanzamiento")
             if not emoji_special:
                 emoji_special = '🎉'
 
+    # Review detection
     if any(kw in title_lower for kw in ["análisis", "review", "reseña", "comparativa"]):
         special_tags.append("#ReviewGamer")
 
