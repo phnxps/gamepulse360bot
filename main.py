@@ -50,7 +50,6 @@ sent_articles = set()
 last_curiosity_sent = datetime.now() - timedelta(hours=6)
 
 async def send_news(context, entry):
-    # Revisar si la noticia es reciente (últimas 6 horas)
     if hasattr(entry, 'published_parsed'):
         published = datetime(*entry.published_parsed[:6])
         if datetime.now() - published > timedelta(hours=6):
@@ -88,10 +87,13 @@ async def send_news(context, entry):
     if any(kw in title_lower for kw in ["gratis", "free", "regalo"]):
         special_tags.append("#JuegoGratis")
         emoji_special = '🎁'
+
     if any(kw in title_lower for kw in ["anunci", "lanzamiento", "próximo", "proximo", "sale", "disponible", "estrena", "estreno", "estrenará", "fecha confirmada", "tráiler final", "open beta", "demo", "early access"]):
-        special_tags.append("#ProximoLanzamiento")
-        if not emoji_special:
-            emoji_special = '🎉'
+        if not any(block in title_lower for block in ["mantenimiento", "servidores", "online", "downtime", "actualización de sistema", "patch notes"]):
+            special_tags.append("#ProximoLanzamiento")
+            if not emoji_special:
+                emoji_special = '🎉'
+
     if any(kw in title_lower for kw in ["análisis", "review", "reseña", "comparativa"]):
         special_tags.append("#ReviewGamer")
 
