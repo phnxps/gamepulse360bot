@@ -58,49 +58,58 @@ async def send_news(bot, title, link, is_trailer=False):
     hashtags = "#Gamepulse360 #NoticiasGamer"
     message = f"🎮 *{title}*\n\n{hashtags}"
 
-    await bot.send_message(
-        chat_id=CHANNEL_USERNAME,
-        text=message,
-        parse_mode=telegram.constants.ParseMode.MARKDOWN,
-        reply_markup=reply_markup,
-        disable_web_page_preview=False
-    )
+    try:
+        await bot.send_message(
+            chat_id=CHANNEL_USERNAME,
+            text=message,
+            parse_mode=telegram.constants.ParseMode.MARKDOWN,
+            reply_markup=reply_markup,
+            disable_web_page_preview=False
+        )
+    except Exception as e:
+        print(f"Error al enviar la noticia: {e}")
 
 async def send_curiosity(bot):
     curiosity = random.choice(CURIOSIDADES)
     hashtags = "#Gamepulse360 #DatoGamer"
     message = f"🕹️ *Curiosidad Gamer*\n{curiosity}\n\n{hashtags}"
-    await bot.send_message(
-        chat_id=CHANNEL_USERNAME,
-        text=message,
-        parse_mode=telegram.constants.ParseMode.MARKDOWN,
-        disable_web_page_preview=False
-    )
+    try:
+        await bot.send_message(
+            chat_id=CHANNEL_USERNAME,
+            text=message,
+            parse_mode=telegram.constants.ParseMode.MARKDOWN,
+            disable_web_page_preview=False
+        )
+    except Exception as e:
+        print(f"Error al enviar la curiosidad: {e}")
 
 async def check_feeds(bot):
     global last_curiosity_sent
     new_article_sent = False
 
-    for feed_url in RSS_FEEDS:
-        feed = feedparser.parse(feed_url)
-        for entry in feed.entries[:5]:
-            if entry.link not in sent_articles:
-                title = entry.title
-                link = entry.link
+    try:
+        for feed_url in RSS_FEEDS:
+            feed = feedparser.parse(feed_url)
+            for entry in feed.entries[:5]:
+                if entry.link not in sent_articles:
+                    title = entry.title
+                    link = entry.link
 
-                is_trailer = any(keyword in title.lower() for keyword in ["tráiler", "trailer", "launch trailer", "gameplay trailer"])
-                await send_news(bot, title, link, is_trailer)
+                    is_trailer = any(keyword in title.lower() for keyword in ["tráiler", "trailer", "launch trailer", "gameplay trailer"])
+                    await send_news(bot, title, link, is_trailer)
 
-                sent_articles.add(entry.link)
-                new_article_sent = True
-                print(f"Enviado: {title}")
-                await asyncio.sleep(10)
+                    sent_articles.add(entry.link)
+                    new_article_sent = True
+                    print(f"Enviado: {title}")
+                    await asyncio.sleep(10)
 
-    if not new_article_sent:
-        now = datetime.now()
-        if now - last_curiosity_sent > timedelta(hours=6):
-            await send_curiosity(bot)
-            last_curiosity_sent = now
+        if not new_article_sent:
+            now = datetime.now()
+            if now - last_curiosity_sent > timedelta(hours=6):
+                await send_curiosity(bot)
+                last_curiosity_sent = now
+    except Exception as e:
+        print(f"Error al procesar los feeds: {e}")
 
 async def vote_handler(update, context):
     query = update.callback_query
@@ -121,18 +130,22 @@ async def vote_handler(update, context):
     print(f"Votos para {link}: {votes[link]}")  # Esto solo lo ves en Railway logs
 
 async def main():
-    # Inicialización correcta para la versión v20+ de python-telegram-bot
-    application = Application.builder().token(BOT_TOKEN).build()
-    application.add_handler(CallbackQueryHandler(vote_handler))
+    try:
+        application = Application.builder().token(BOT_TOKEN).build()
+        application.add_handler(CallbackQueryHandler(vote_handler))
 
-    # Función principal que se ejecutará cada 10 minutos
-    async def job():
-        while True:
-            await check_feeds(application.bot)
-            await asyncio.sleep(600)  # 10 minutos
+        # Ejecutar las tareas concurrentemente
+        async def job():
+            while True:
+                await check_feeds(application.bot)
+                await asyncio.sleep(600)  # 10 minutos
 
-    # Ejecutar todo
-    await asyncio.gather(application.start(), job())
+        # Usar el método correcto para iniciar el bot
+        await application.initialize()
+        await asyncio.gather(application.run_polling(), job())  # Aquí cambiamos run_polling()
+
+    except Exception as e:
+        print(f"Error al iniciar la aplicación: {e}")
 
 if __name__ == "__main__":
     asyncio.run(main())
