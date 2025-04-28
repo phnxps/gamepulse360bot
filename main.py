@@ -1,3 +1,4 @@
+from sent_articles import init_db, save_article, is_article_saved
 import os
 import feedparser
 import telegram
@@ -10,6 +11,8 @@ from bs4 import BeautifulSoup
 
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 CHANNEL_USERNAME = os.getenv("CHANNEL_USERNAME")
+
+init_db()
 
 RSS_FEEDS = [
     'https://vandal.elespanol.com/rss/',
@@ -189,11 +192,6 @@ async def send_news(context, entry):
                 disable_web_page_preview=False,
                 reply_markup=button
             )
-        # Añadir la noticia enviada al archivo
-        with open(SENT_ARTICLES_FILE, 'a') as f:
-            f.write(entry.link + '\n')
-        sent_articles.add(entry.link)
-        print(f"✅ Noticia guardada: {entry.link}")
     except Exception as e:
         print(f"Error al enviar noticia: {e}")
 
@@ -217,8 +215,9 @@ async def check_feeds(context):
     for feed_url in RSS_FEEDS:
         feed = feedparser.parse(feed_url)
         for entry in feed.entries[:5]:
-            if entry.link not in sent_articles:
+            if not is_article_saved(entry.link):
                 await send_news(context, entry)
+                save_article(entry.link)
                 new_article_sent = True
 
     if not new_article_sent:
