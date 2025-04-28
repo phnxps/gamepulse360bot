@@ -29,6 +29,7 @@ RSS_FEEDS = [
     'https://www.xataka.com/tag/nintendo/rss',
     'https://www.xataka.com/tag/playstation/rss',
     'https://www.laps4.com/feed/',
+    'https://areajugones.sport.es/feed/',
 ]
 
 CURIOSIDADES = [
@@ -61,13 +62,49 @@ CURIOSIDADES = [
     "El primer tráiler de Elden Ring tardó 2 años en publicarse tras su anuncio. 🕯️",
 ]
 
-sent_articles = set()
-SENT_ARTICLES_FILE = 'sent_articles.txt'
+ENCUESTAS = [
+    {"pregunta": "¿Cuál es tu consola favorita?", "opciones": ["PlayStation", "Xbox", "Nintendo Switch", "PC"]},
+    {"pregunta": "¿Qué tipo de juegos prefieres?", "opciones": ["RPG", "Shooter", "Aventura", "Deportes"]},
+    {"pregunta": "¿Qué saga prefieres?", "opciones": ["Zelda", "Mario", "Halo", "Call of Duty"]},
+    {"pregunta": "¿Prefieres juegos físicos o digitales?", "opciones": ["Físicos", "Digitales"]},
+    {"pregunta": "¿Cuál esperas más este año?", "opciones": ["GTA VI", "Zelda", "Final Fantasy", "Fable"]},
+    {"pregunta": "¿Sueles comprar juegos en lanzamiento?", "opciones": ["Sí", "No", "Depende del juego"]},
+    {"pregunta": "¿Juego retro favorito?", "opciones": ["Super Mario Bros", "Tetris", "Pac-Man", "Sonic"]},
+    {"pregunta": "¿Con qué frecuencia juegas online?", "opciones": ["Diario", "Semanal", "Raramente", "Nunca"]},
+    {"pregunta": "¿Prefieres modo historia o multijugador?", "opciones": ["Historia", "Multijugador"]},
+    {"pregunta": "¿Te gustan más los mundos abiertos o lineales?", "opciones": ["Mundos abiertos", "Lineales"]},
+    {"pregunta": "¿Tu género favorito?", "opciones": ["Acción", "Aventura", "Estrategia", "Deportes"]},
+    {"pregunta": "¿Qué consola te gustaría que regresara?", "opciones": ["Dreamcast", "PS1", "GameCube", "Xbox clásica"]},
+    {"pregunta": "¿Qué prefieres para jugar?", "opciones": ["Consola", "PC", "Móvil"]},
+    {"pregunta": "¿Qué saga esperas que tenga una nueva entrega?", "opciones": ["Metroid", "Half Life", "Silent Hill", "Splinter Cell"]},
+    {"pregunta": "¿Qué prefieres en un juego?", "opciones": ["Gráficos", "Jugabilidad", "Historia", "Música"]},
+    {"pregunta": "¿Compras DLCs?", "opciones": ["Sí", "No", "Sólo expansiones grandes"]},
+    {"pregunta": "¿Usas mods en tus juegos?", "opciones": ["Sí", "No"]},
+    {"pregunta": "¿Te gusta más jugar solo o en cooperativo?", "opciones": ["Solo", "Cooperativo"]},
+    {"pregunta": "¿Qué villano te parece más icónico?", "opciones": ["Bowser", "Sephiroth", "Ganon", "Dr. Robotnik"]},
+    {"pregunta": "¿Qué prefieres para combates?", "opciones": ["FPS", "RPG", "Beat'em up", "Plataformas"]},
+    {"pregunta": "¿Tu plataforma portátil favorita?", "opciones": ["Game Boy", "Nintendo DS", "PSP", "Switch"]},
+    {"pregunta": "¿Qué juego esperas con más ganas?", "opciones": ["Final Fantasy VII Rebirth", "Metroid Prime 4", "Hades 2", "Dragon's Dogma 2"]},
+    {"pregunta": "¿Prefieres sagas occidentales o japonesas?", "opciones": ["Occidentales", "Japonesas"]},
+    {"pregunta": "¿Qué saga necesita un remake urgente?", "opciones": ["Silent Hill", "Metal Gear", "F-Zero", "Golden Sun"]},
+    {"pregunta": "¿Cuál consideras la mejor portátil de la historia?", "opciones": ["Nintendo DS", "PSP", "Game Boy", "Switch"]},
+    {"pregunta": "¿Te gustan más los juegos pixelados o 3D modernos?", "opciones": ["Pixelados", "3D modernos"]},
+    {"pregunta": "¿Qué compañía crees que innova más?", "opciones": ["Nintendo", "Sony", "Microsoft"]},
+    {"pregunta": "¿Qué prefieres: jugar en TV o en portátil?", "opciones": ["TV", "Portátil"]},
+    {"pregunta": "¿Te gustan los juegos roguelike?", "opciones": ["Sí", "No"]},
+    {"pregunta": "¿Qué prefieres para jugar RPGs?", "opciones": ["Turnos", "Acción directa"]},
+    {"pregunta": "¿Qué prefieres en shooters?", "opciones": ["Realismo", "Arcade rápido"]},
+    {"pregunta": "¿Qué saga de peleas es tu favorita?", "opciones": ["Tekken", "Street Fighter", "Smash Bros", "Mortal Kombat"]},
+    {"pregunta": "¿Compras consolas en su lanzamiento?", "opciones": ["Sí", "No", "Espero rebajas"]},
+    {"pregunta": "¿Qué consola marcó tu infancia?", "opciones": ["PS2", "NES", "Mega Drive", "Game Boy"]},
+    {"pregunta": "¿Qué prefieres en los RPGs?", "opciones": ["Historia profunda", "Combate complejo"]},
+    {"pregunta": "¿Sueles completar juegos al 100%?", "opciones": ["Sí", "No"]},
+    {"pregunta": "¿Qué prefieres en mundos abiertos?", "opciones": ["Exploración", "Misiones principales"]},
+    {"pregunta": "¿Prefieres campañas largas o cortas?", "opciones": ["Largas", "Cortas"]},
+    {"pregunta": "¿Qué juego consideras sobrevalorado?", "opciones": ["Fortnite", "GTA V", "Minecraft", "Call of Duty"]},
+    {"pregunta": "¿Qué prefieres para jugar online?", "opciones": ["PC", "Consola"]},
+]
 
-# Cargar los artículos ya enviados
-if os.path.exists(SENT_ARTICLES_FILE):
-    with open(SENT_ARTICLES_FILE, 'r') as f:
-        sent_articles = set(f.read().splitlines())
 
 proximos_lanzamientos = []
 last_curiosity_sent = datetime.now() - timedelta(hours=6)
@@ -77,6 +114,20 @@ async def send_news(context, entry):
         published = datetime(*entry.published_parsed[:6])
         if published.date() != datetime.now().date():
             return
+
+    # Filtro: excluir noticias de cine o series que no estén relacionadas con videojuegos
+    title_lower = entry.title.lower()
+    summary_lower = (entry.summary if hasattr(entry, 'summary') else "").lower()
+
+    if any(keyword in title_lower for keyword in ["película", "serie", "actor", "cine", "temporada", "episodio"]) and not any(
+        related in title_lower for related in ["juego", "videojuego", "expansión", "dlc", "adaptación", "game"]
+    ):
+        return
+
+    if any(keyword in summary_lower for keyword in ["película", "serie", "actor", "cine", "temporada", "episodio"]) and not any(
+        related in summary_lower for related in ["juego", "videojuego", "expansión", "dlc", "adaptación", "game"]
+    ):
+        return
 
     link = entry.link.lower()
     if 'playstation' in link:
@@ -221,6 +272,29 @@ async def check_feeds(context):
                 save_article(entry.link)
                 new_article_sent = True
 
+    # Revisión de eventos especiales detectados hoy
+    today = datetime.now().date()
+    from sent_articles import get_all_articles  # Necesitamos tener esta función en sent_articles.py
+    articles_today = [link for link in get_all_articles() if datetime.now().date() == today]
+
+    eventos_detectados = False
+    for article in articles_today:
+        if any(keyword in article.lower() for keyword in ["state of play", "nintendo direct", "showcase", "summer game fest", "game awards", "evento especial", "presentation", "conference", "presentación"]):
+            eventos_detectados = True
+            break
+
+    if eventos_detectados:
+        try:
+            evento_texto = "🎬 *¡Hoy hay eventos especiales en el mundo gamer!*\n\nPrepárate para seguir todas las novedades. 👾🔥"
+            await context.bot.send_message(
+                chat_id=CHANNEL_USERNAME,
+                text=evento_texto,
+                parse_mode=telegram.constants.ParseMode.MARKDOWN,
+                disable_web_page_preview=False
+            )
+        except Exception as e:
+            print(f"Error al enviar mensaje de eventos especiales: {e}")
+
     if not new_article_sent:
         if datetime.now().weekday() == 6:  # Domingo
             await send_launch_summary(context)
@@ -228,21 +302,6 @@ async def check_feeds(context):
         if now - last_curiosity_sent > timedelta(hours=6):
             await send_curiosity(context)
             last_curiosity_sent = now
-
-        # Detección automática de eventos especiales
-        today = datetime.now().date()
-        events_today = [entry for entry in sent_articles if any(keyword in entry.lower() for keyword in ["state of play", "nintendo direct", "showcase", "summer game fest", "game awards", "evento especial", "presentation", "conference", "presentación"])]
-        if events_today:
-            try:
-                evento_texto = "🎬 *¡Hoy hay eventos especiales en el mundo gamer!*\n\nPrepárate para seguir todas las novedades. 👾🔥"
-                await context.bot.send_message(
-                    chat_id=CHANNEL_USERNAME,
-                    text=evento_texto,
-                    parse_mode=telegram.constants.ParseMode.MARKDOWN,
-                    disable_web_page_preview=False
-                )
-            except Exception as e:
-                print(f"Error al enviar mensaje de eventos especiales: {e}")
 
 async def send_launch_summary(context):
     if not proximos_lanzamientos:
@@ -265,6 +324,18 @@ def main():
     job_queue = application.job_queue
     job_queue.run_repeating(check_feeds, interval=600, first=10)
 
+    # Enviar encuestas en días aleatorios entre lunes y viernes
+    from random import randint
+    import datetime as dt
+    random_day = randint(0, 4)  # Lunes (0) a Viernes (4)
+    random_hour = randint(11, 19)  # Entre las 11h y 19h
+
+    job_queue.run_daily(
+        send_random_poll,
+        time=dt.time(hour=random_hour),
+        days=(random_day,)
+    )
+
     print("Bot iniciado correctamente.")
     application.run_polling()
 
@@ -272,6 +343,20 @@ def main():
 async def import_existing_links():
     print("🔎 Saltando la importación de mensajes antiguos (no implementado en esta versión).")
     return
+
+async def send_random_poll(context):
+    from random import choice
+    encuesta = choice(ENCUESTAS)
+    try:
+        await context.bot.send_poll(
+            chat_id=CHANNEL_USERNAME,
+            question=encuesta["pregunta"],
+            options=encuesta["opciones"],
+            is_anonymous=True,
+            allows_multiple_answers=False
+        )
+    except Exception as e:
+        print(f"Error al enviar encuesta: {e}")
 
 if __name__ == "__main__":
     main()
