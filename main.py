@@ -320,6 +320,7 @@ async def send_launch_summary(context):
 
 def main():
     application = ApplicationBuilder().token(BOT_TOKEN).build()
+    asyncio.run(import_existing_links())
 
     job_queue = application.job_queue
     job_queue.run_repeating(check_feeds, interval=600, first=10)
@@ -341,8 +342,16 @@ def main():
 
 
 async def import_existing_links():
-    print("🔎 Saltando la importación de mensajes antiguos (no implementado en esta versión).")
-    return
+    print("🔎 Importando mensajes antiguos del canal...")
+    bot = Bot(token=BOT_TOKEN)
+    updates = await bot.get_updates(limit=100)
+    for update in updates:
+        if update.message and update.message.text:
+            text = update.message.text
+            for word in text.split():
+                if word.startswith("http"):
+                    save_article(word)
+    print("✅ Importación completada.")
 
 async def send_random_poll(context):
     from random import choice
@@ -355,7 +364,7 @@ async def send_random_poll(context):
             is_anonymous=True,
             allows_multiple_answers=False
         )
-    except Exception as e:
+    except Exception as e:no me 
         print(f"Error al enviar encuesta: {e}")
 
 if __name__ == "__main__":
