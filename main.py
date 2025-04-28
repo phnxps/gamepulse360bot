@@ -320,7 +320,7 @@ async def send_launch_summary(context):
 
 def main():
     application = ApplicationBuilder().token(BOT_TOKEN).build()
-    asyncio.run(import_existing_links())
+    application.job_queue.run_once(lambda context: asyncio.create_task(import_existing_links()), when=0)
 
     job_queue = application.job_queue
     job_queue.run_repeating(check_feeds, interval=600, first=10)
