@@ -2,12 +2,13 @@ from sent_articles import init_db, save_article, is_article_saved
 import os
 import feedparser
 import telegram
-from telegram import InlineKeyboardButton, InlineKeyboardMarkup
+from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Bot
 from telegram.ext import ApplicationBuilder
 from datetime import datetime, timedelta
 import random
 import requests
 from bs4 import BeautifulSoup
+import asyncio
 
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 CHANNEL_USERNAME = os.getenv("CHANNEL_USERNAME")
@@ -267,5 +268,20 @@ def main():
     print("Bot iniciado correctamente.")
     application.run_polling()
 
+
+# Importar enlaces existentes del canal antes de arrancar el bot
+async def import_existing_links():
+    bot = Bot(token=BOT_TOKEN)
+    print("🔎 Importando mensajes antiguos del canal...")
+    async for message in bot.get_chat_history(chat_id=CHANNEL_USERNAME, limit=500):
+        if message.text:
+            links = [word for word in message.text.split() if word.startswith('http')]
+            for link in links:
+                if not is_article_saved(link):
+                    save_article(link)
+                    print(f"✅ Enlace del canal guardado: {link}")
+    print("✅ Importación de enlaces terminada.")
+
 if __name__ == "__main__":
+    asyncio.run(import_existing_links())
     main()
