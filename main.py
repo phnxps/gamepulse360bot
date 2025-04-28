@@ -364,7 +364,7 @@ async def send_random_poll(context):
             is_anonymous=True,
             allows_multiple_answers=False
         )
-    except Exception as e:no me 
+    except Exception as e:
         print(f"Error al enviar encuesta: {e}")
 
 if __name__ == "__main__":
