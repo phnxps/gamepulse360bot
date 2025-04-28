@@ -269,19 +269,9 @@ def main():
     application.run_polling()
 
 
-# Importar enlaces existentes del canal antes de arrancar el bot
 async def import_existing_links():
-    bot = Bot(token=BOT_TOKEN)
-    print("🔎 Importando mensajes antiguos del canal...")
-    async for message in bot.get_chat_history(chat_id=CHANNEL_USERNAME, limit=500):
-        if message.text:
-            links = [word for word in message.text.split() if word.startswith('http')]
-            for link in links:
-                if not is_article_saved(link):
-                    save_article(link)
-                    print(f"✅ Enlace del canal guardado: {link}")
-    print("✅ Importación de enlaces terminada.")
+    print("🔎 Saltando la importación de mensajes antiguos (no implementado en esta versión).")
+    return
 
 if __name__ == "__main__":
-    asyncio.run(import_existing_links())
     main()
