@@ -28,6 +28,7 @@ RSS_FEEDS = [
     'https://news.xbox.com/es-mx/feed/',
     'https://nintenduo.com/category/noticias/feed/',
     'https://www.xataka.com/tag/nintendo/rss',
+    'https://www.eurogamer.es/rss',
     'https://www.xataka.com/tag/playstation/rss',
     'https://www.laps4.com/feed/',
     'https://www.gamereactor.es/rss/rss.php?texttype=1',
