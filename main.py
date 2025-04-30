@@ -219,12 +219,17 @@ async def send_news(context, entry):
         return
 
     # Proximo lanzamiento detection (mejorada para evitar falsos positivos)
-    if any(kw in title_lower for kw in ["anuncia", "anunciado", "confirmado", "confirmada", "lanzamiento", "próximo", "proximo", "sale", "disponible", "estrena", "estreno", "estrenará", "fecha confirmada", "open beta", "demo", "early access", "llegará", "fecha prevista", "se lanzará"]) and "retrasa" not in title_lower and "retraso" not in title_lower:
-        if not any(block in title_lower for block in ["mantenimiento", "servidores", "online", "downtime", "actualización", "patch notes"]):
-            if not any(false_positive in title_lower for false_positive in ["mejor lanzamiento", "ya disponible", "ha enamorado", "lanzado", "el lanzamiento de", "ya está", "ya se encuentra", "notas de metacritic"]):
-                special_tags.append("#ProximoLanzamiento")
-                if not emoji_special:
-                    emoji_special = '🎉'
+    if any(kw in title_lower for kw in [
+        "anuncia", "anunciado", "confirmado", "confirmada", "estrenará", "fecha confirmada",
+        "llegará", "se lanzará", "sale el", "estrena el", "estreno el", "estará disponible el"
+    ]):
+        if not any(block in title_lower for block in [
+            "ya está disponible", "ya a la venta", "disponible ahora", "está disponible", "ya se puede jugar",
+            "mejor lanzamiento", "ha enamorado", "lanzado", "el lanzamiento de", "ya está", "ya se encuentra", "notas de metacritic"
+        ]):
+            special_tags.append("#ProximoLanzamiento")
+            if not emoji_special:
+                emoji_special = '🎉'
 
     if "#ProximoLanzamiento" in special_tags:
         fecha_publicacion = published.strftime('%d/%m/%Y') if 'published' in locals() else "Próximamente"
@@ -467,4 +472,3 @@ async def import_existing_links(context):
 
 if __name__ == "__main__":
     main()
-
