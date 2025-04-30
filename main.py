@@ -1,10 +1,10 @@
-from sent_articles import init_db, save_article, is_article_saved
+from sent_articles import init_db, save_article, is_article_saved, get_all_articles
 import os
 import feedparser
 import telegram
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Bot
 from telegram.ext import ApplicationBuilder
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, time
 import random
 import requests
 from bs4 import BeautifulSoup
@@ -68,35 +68,42 @@ proximos_lanzamientos = []
 last_curiosity_sent = datetime.now() - timedelta(hours=6)
 
 async def send_news(context, entry):
+    # Filtrar noticias recientes (últimas 3 horas)
     if hasattr(entry, 'published_parsed'):
         published = datetime(*entry.published_parsed[:6])
-        if published.date() != datetime.now().date():
+        if datetime.now() - published > timedelta(hours=3):
             return
+    # Permitimos todas las noticias, sin filtrar por fecha de publicación
 
     # Filtro: excluir noticias de cine o series que no estén relacionadas con videojuegos
     title_lower = entry.title.lower()
     summary_lower = (entry.summary if hasattr(entry, 'summary') else "").lower()
 
-    if any(keyword in title_lower for keyword in ["película", "serie", "actor", "cine", "temporada", "episodio"]) and not any(
+    if any(keyword in title_lower for keyword in ["película", "serie", "actor", "cine", "temporada", "episodio", "manga", "anime"]) and not any(
         related in title_lower for related in ["juego", "videojuego", "expansión", "dlc", "adaptación", "game"]
     ):
         return
 
-    if any(keyword in summary_lower for keyword in ["película", "serie", "actor", "cine", "temporada", "episodio"]) and not any(
+    if any(keyword in summary_lower for keyword in ["película", "serie", "actor", "cine", "temporada", "episodio", "manga", "anime"]) and not any(
         related in summary_lower for related in ["juego", "videojuego", "expansión", "dlc", "adaptación", "game"]
     ):
         return
 
+    # Filtro adicional para ignorar noticias relacionadas con Wordle
+    if "wordle" in title_lower or "wordle" in summary_lower:
+        return
+
     link = entry.link.lower()
-    if 'playstation' in link:
-        platform_label = 'PLAYSTATION'
-        icon = '🎮'
-        tag = '#PlayStation'
-    elif 'switch 2' in link or 'switch-2' in link:
+    # Mejorada: detección precisa de Nintendo Switch 2 (requiere "nintendo" y "switch 2" en título o resumen)
+    if (("nintendo" in title_lower or "nintendo" in summary_lower) and ("switch 2" in title_lower or "switch 2" in summary_lower)):
         platform_label = 'NINTENDO SWITCH 2'
         icon = '🍄'
         tag = '#NintendoSwitch2'
-    elif 'switch' in link:
+    elif 'playstation' in link:
+        platform_label = 'PLAYSTATION'
+        icon = '🎮'
+        tag = '#PlayStation'
+    elif 'switch' in link and ('switch' in title_lower or 'switch' in summary_lower):
         platform_label = 'NINTENDO SWITCH'
         icon = '🍄'
         tag = '#NintendoSwitch'
@@ -113,37 +120,111 @@ async def send_news(context, entry):
 
     link_lower = entry.link.lower()
 
-    # Detección de análisis de Laps4 como ReviewGamer
-    if "laps4.com" in link_lower and "análisis" in title_lower:
-        special_tags.append("#ReviewGamer")
-        emoji_special = '📝'
-
     special_tags = []
     emoji_special = ''
 
-    # Evento especial detection
-    if any(kw in title_lower for kw in ["state of play", "nintendo direct", "showcase", "summer game fest", "game awards", "evento especial", "presentation", "conference", "presentación"]):
+    # Clasificación especial avanzada
+    if any(kw in title_lower for kw in ["direct", "evento especial", "showcase", "game awards", "presentation", "conference", "wholesome direct"]):
         special_tags.insert(0, "#EventoEspecial")
         emoji_special = '🎬'
+        # Añadir evento especial a la lista de próximos lanzamientos con fecha si está disponible
+        if 'published' in locals():
+            fecha_evento = published.strftime('%d/%m/%Y')
+            proximos_lanzamientos.append(f"- EVENTO: {entry.title} ({fecha_evento})")
 
-    # Trailer detection
-    if any(kw in title_lower for kw in ["tráiler", "trailer", "avance", "gameplay"]):
-        special_tags.append("#TrailerOficial")
+    if any(kw in title_lower for kw in ["tráiler", "trailer", "gameplay", "avance"]):
+        if not any(neg in title_lower for neg in ["no debería", "no tendrá", "sin tráiler", "sin trailer", "no tiene tráiler", "no hay tráiler", "no hay trailer"]):
+            special_tags.append("#TrailerOficial")
+            emoji_special = '🎥'
+
+    if any(kw in title_lower for kw in ["códigos", "código", "code", "giftcode"]):
+        if not any(kw in title_lower for kw in ["error", "problema", "fallo", "solucionar", "solución"]):
+            special_tags.append("#CodigosGamer")
+            emoji_special = '🔑'
+
+    if any(kw in title_lower for kw in [
+        "guía", "como encontrar", "cómo encontrar", "cómo derrotar", "como derrotar", 
+        "localizar", "localización", "walkthrough", "cómo resolver", "todas las ubicaciones", 
+        "como conseguir", "cómo conseguir", "dónde encontrar", "como desbloquear", "cómo desbloquear"
+    ]):
+        special_tags.append("#GuiaGamer")
+        emoji_special = '📖'
+
+    if any(kw in title_lower for kw in ["rebaja", "descuento", "precio reducido", "promoción", "baja de precio", "por solo", "al mejor precio", "de oferta", "está por menos de", "bundle", "mejores ofertas"]) \
+        or "mejores ofertas" in title_lower:
+        special_tags.append("#OfertaGamer")
         if not emoji_special:
-            emoji_special = '🔥'
+            emoji_special = '💸'
+
+    # Detección de retrasos de lanzamiento
+    if any(kw in title_lower for kw in ["retrasa", "retraso", "se retrasa", "aplazado", "postergado"]):
+        special_tags.append("#LanzamientoRetrasado")
+        if not emoji_special:
+            emoji_special = '⏳'
+
+    # Detección de análisis de Laps4 como ReviewGamer
+    if "laps4.com" in link_lower and "análisis" in title_lower:
+        special_tags.append("#ReviewGamer")
+        if not emoji_special:
+            emoji_special = '📝'
+
+    # Evento especial detection (redundant with advanced classification but kept for backward compatibility)
+    if any(kw in title_lower for kw in ["state of play", "nintendo direct", "showcase", "summer game fest", "game awards", "evento especial", "presentation", "conference", "presentación"]):
+        if "#EventoEspecial" not in special_tags:
+            special_tags.insert(0, "#EventoEspecial")
+            if not emoji_special:
+                emoji_special = '🎬'
+            # Añadir evento especial a la lista de próximos lanzamientos con fecha si está disponible
+            if 'published' in locals():
+                fecha_evento = published.strftime('%d/%m/%Y')
+                proximos_lanzamientos.append(f"- EVENTO: {entry.title} ({fecha_evento})")
+
+    # Nueva detección de ofertas o rebajas (already handled above, but here to adjust platform_label if generic)
+    if "#OfertaGamer" in special_tags:
+        # Si es oferta/rebaja, ajustar platform_label si es genérico
+        if platform_label == 'NOTICIAS GAMER':
+            # Intentar detectar plataforma en título o resumen para asignar plataforma correcta
+            if (("nintendo" in title_lower or "nintendo" in summary_lower) and ("switch 2" in title_lower or "switch 2" in summary_lower)):
+                platform_label = 'NINTENDO SWITCH 2'
+                icon = '🍄'
+                tag = '#NintendoSwitch2'
+            elif any(kw in title_lower for kw in ["switch"]) or any(kw in summary_lower for kw in ["switch"]):
+                platform_label = 'NINTENDO SWITCH'
+                icon = '🍄'
+                tag = '#NintendoSwitch'
+            elif any(kw in title_lower for kw in ["playstation"]) or any(kw in summary_lower for kw in ["playstation"]):
+                platform_label = 'PLAYSTATION'
+                icon = '🎮'
+                tag = '#PlayStation'
+            elif any(kw in title_lower for kw in ["xbox"]) or any(kw in summary_lower for kw in ["xbox"]):
+                platform_label = 'XBOX'
+                icon = '🟢'
+                tag = '#Xbox'
 
     # Free game detection
     if any(kw in title_lower for kw in ["gratis", "free", "regalo"]):
         special_tags.append("#JuegoGratis")
         if not emoji_special:
             emoji_special = '🎁'
+    # Free game detection (extended)
+    if any(kw in title_lower for kw in ["gratis", "free", "regalo", "hazte con", "obtener gratis", "puedes conseguir"]):
+        special_tags.append("#JuegoGratis")
+        if not emoji_special:
+            emoji_special = '🎁'
+    # Filtro para descartar artículos no relacionados con videojuegos
+    if not any(word in summary_lower + title_lower for word in [
+        "videojuego", "juego", "consola", "ps5", "xbox", "switch", "gaming", "nintendo", "playstation",
+        "dlc", "expansión", "demo", "tráiler", "skins", "jugabilidad", "personaje", "mapa", "nivel", "gamer"
+    ]):
+        return
 
-    # Proximo lanzamiento detection
-    if any(kw in title_lower for kw in ["anunci", "lanzamiento", "próximo", "proximo", "sale", "disponible", "estrena", "estreno", "estrenará", "fecha confirmada", "open beta", "demo", "early access"]):
+    # Proximo lanzamiento detection (mejorada para evitar falsos positivos)
+    if any(kw in title_lower for kw in ["anuncia", "anunciado", "confirmado", "confirmada", "lanzamiento", "próximo", "proximo", "sale", "disponible", "estrena", "estreno", "estrenará", "fecha confirmada", "open beta", "demo", "early access", "llegará", "fecha prevista", "se lanzará"]) and "retrasa" not in title_lower and "retraso" not in title_lower:
         if not any(block in title_lower for block in ["mantenimiento", "servidores", "online", "downtime", "actualización", "patch notes"]):
-            special_tags.append("#ProximoLanzamiento")
-            if not emoji_special:
-                emoji_special = '🎉'
+            if not any(false_positive in title_lower for false_positive in ["mejor lanzamiento", "ya disponible", "ha enamorado", "lanzado", "el lanzamiento de", "ya está", "ya se encuentra", "notas de metacritic"]):
+                special_tags.append("#ProximoLanzamiento")
+                if not emoji_special:
+                    emoji_special = '🎉'
 
     if "#ProximoLanzamiento" in special_tags:
         fecha_publicacion = published.strftime('%d/%m/%Y') if 'published' in locals() else "Próximamente"
@@ -151,7 +232,11 @@ async def send_news(context, entry):
 
     # Review detection
     if any(kw in title_lower for kw in ["análisis", "review", "reseña", "comparativa"]):
-        special_tags.append("#ReviewGamer")
+        if "reseñas extremadamente positivas" not in title_lower:
+            if "#ReviewGamer" not in special_tags:
+                special_tags.append("#ReviewGamer")
+            if not emoji_special:
+                emoji_special = '📝'
 
     photo_url = None
     if entry.get("media_content"):
@@ -175,13 +260,50 @@ async def send_news(context, entry):
         except Exception as e:
             print(f"Error obteniendo imagen por scraping: {e}")
 
-    hashtags = " ".join(special_tags + [tag])
+    # Ajustar caption para eliminar "NOTICIAS GAMER" si es oferta/rebaja o categoría específica
+    if platform_label == 'NOTICIAS GAMER' and ("#OfertaGamer" in special_tags or any(tag in special_tags for tag in ["#EventoEspecial", "#TrailerOficial", "#JuegoGratis", "#ProximoLanzamiento", "#ReviewGamer", "#CodigosGamer", "#GuiaGamer"])):
+        # En este caso, no usar "NOTICIAS GAMER" genérico
+        platform_label = ''
+        icon = ''
+        tag = ''
 
-    caption = (
-        f"{icon} *{platform_label}*\n\n"
-        f"{emoji_special} *{entry.title}*\n\n"
-        f"{hashtags}"
-    ).strip()
+    hashtags = " ".join(special_tags + ([tag] if tag else []))
+
+    # Determinar si es una categoría especial y asignar el título especial correspondiente
+    special_title = ""
+    # Prioridad: Evento, Tráiler, Códigos, Guía, Oferta, Lanzamiento, Retrasado
+    if "#EventoEspecial" in special_tags:
+        special_title = "*🎬 EVENTO ESPECIAL*"
+    elif "#TrailerOficial" in special_tags:
+        special_title = "*🎥 NUEVO TRÁILER*"
+    elif "#CodigosGamer" in special_tags:
+        special_title = "*🔑 CÓDIGOS DISPONIBLES*"
+    elif "#GuiaGamer" in special_tags:
+        special_title = "*📖 GUÍA GAMER*"
+    elif "#OfertaGamer" in special_tags:
+        special_title = "*💸 OFERTA GAMER*"
+    elif "#ProximoLanzamiento" in special_tags:
+        special_title = "*🎉 PRÓXIMO LANZAMIENTO*"
+    elif "#LanzamientoRetrasado" in special_tags:
+        special_title = "*⏳ RETRASADO*"
+
+    if special_title:
+        caption = (
+            f"{icon} {special_title}\n\n"
+            f"{emoji_special} *{entry.title}*\n\n"
+            f"{hashtags}"
+        ).strip()
+    elif platform_label:
+        caption = (
+            f"{icon} *{platform_label}*\n\n"
+            f"*{entry.title}*\n\n"
+            f"{hashtags}"
+        ).strip()
+    else:
+        caption = (
+            f"*{entry.title}*\n\n"
+            f"{hashtags}"
+        ).strip()
 
     button = InlineKeyboardMarkup([[InlineKeyboardButton("📰 Leer noticia completa", url=entry.link)]])
 
@@ -202,6 +324,12 @@ async def send_news(context, entry):
                 disable_web_page_preview=False,
                 reply_markup=button
             )
+        # Guardar el artículo solo si el mensaje se envió correctamente
+        if hasattr(entry, 'published_parsed'):
+            published = datetime(*entry.published_parsed[:6])
+        else:
+            published = datetime.now()
+        save_article(entry.link, published)
     except Exception as e:
         print(f"Error al enviar noticia: {e}")
 
@@ -224,15 +352,14 @@ async def check_feeds(context):
 
     for feed_url in RSS_FEEDS:
         feed = feedparser.parse(feed_url)
-        for entry in feed.entries[:5]:
-            if not is_article_saved(entry.link):
-                await send_news(context, entry)
-                save_article(entry.link)
-                new_article_sent = True
+        for entry in feed.entries:
+            if is_article_saved(entry.link):
+                continue
+            await send_news(context, entry)
+            new_article_sent = True
 
     # Revisión de eventos especiales detectados hoy
     today = datetime.now().date()
-    from sent_articles import get_all_articles  # Necesitamos tener esta función en sent_articles.py
     articles_today = [link for link in get_all_articles() if datetime.now().date() == today]
 
     eventos_detectados = False
@@ -278,27 +405,66 @@ async def send_launch_summary(context):
 
 def main():
     application = ApplicationBuilder().token(BOT_TOKEN).build()
-    application.job_queue.run_once(lambda context: asyncio.create_task(import_existing_links()), when=0)
 
     job_queue = application.job_queue
     job_queue.run_repeating(check_feeds, interval=600, first=10)
+
+    # Enviar resumen diario todos los días a las 22:00
+    job_queue.run_daily(send_launch_summary, time=time(hour=22, minute=0))
+
+    # Importar mensajes antiguos y reenviar los no publicados recientes
+    application.job_queue.run_once(import_existing_links, when=0)
 
     print("Bot iniciado correctamente.")
     application.run_polling()
 
 
-async def import_existing_links():
+
+
+
+async def import_existing_links(context):
     print("🔎 Importando mensajes antiguos del canal...")
-    bot = Bot(token=BOT_TOKEN)
-    updates = await bot.get_updates(limit=100)
-    for update in updates:
-        if update.message and update.message.text:
-            text = update.message.text
-            for word in text.split():
-                if word.startswith("http"):
-                    save_article(word)
-    print("✅ Importación completada.")
+    bot = context.bot
+    seen_urls = set()
+    offset = None
+    while True:
+        updates = await bot.get_updates(limit=100)
+        if not updates:
+            break
+        for update in updates:
+            # Mantener la compatibilidad con el procesamiento anterior:
+            # update.message y update.message.text
+            if hasattr(update, "message") and hasattr(update.message, "text") and update.message.text:
+                for word in update.message.text.split():
+                    clean_url = word.strip().strip('()[]<>.,!?\'"')
+                    if clean_url.startswith("http"):
+                        seen_urls.add(clean_url)
+                        save_article(clean_url)
+    print(f"✅ Se han registrado {len(seen_urls)} URLs del canal como ya enviadas.")
+
+    # Reenviar artículos recientes que no están en el canal
+    print("🔁 Reenviando artículos recientes no publicados...")
+    from sent_articles import get_all_articles
+    articles_in_db = get_all_articles()
+    print("🧠 Comparando con artículos en base de datos...")
+    for url in articles_in_db:
+        if url not in seen_urls:
+            # Verificar si fue publicado hace menos de 3 horas
+            try:
+                for feed_url in RSS_FEEDS:
+                    feed = feedparser.parse(feed_url)
+                    for entry in feed.entries:
+                        if entry.link == url and hasattr(entry, 'published_parsed'):
+                            published = datetime(*entry.published_parsed[:6])
+                            if datetime.now() - published <= timedelta(hours=3):
+                                await send_news(context, entry)
+                            break
+                else:
+                    print(f"❌ No se reenviará: {url} (muy antiguo o no encontrado)")
+            except Exception as e:
+                print(f"Error al reenviar {url}: {e}")
 
 
 if __name__ == "__main__":
     main()
+
