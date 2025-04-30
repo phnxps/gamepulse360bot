@@ -29,6 +29,7 @@ def init_db():
                 )
             ''')
             conn.commit()
+    add_missing_column()
 
 def add_missing_column():
     try:
