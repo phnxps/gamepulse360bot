@@ -20,6 +20,7 @@ RSS_FEEDS = [
     'https://www.3djuegos.com/rss/',
     'https://www.hobbyconsolas.com/categoria/novedades/rss',
     'https://www.vidaextra.com/feed',
+    'https://es.ign.com/rss',
     'https://www.nintenderos.com/feed',
     'https://as.com/meristation/portada/rss.xml',
     'https://blog.es.playstation.com/feed/',
@@ -29,6 +30,7 @@ RSS_FEEDS = [
     'https://www.xataka.com/tag/nintendo/rss',
     'https://www.xataka.com/tag/playstation/rss',
     'https://www.laps4.com/feed/',
+    'https://www.gamereactor.es/rss/rss.php?texttype=1',
     'https://areajugones.sport.es/feed/',
 ]
 
