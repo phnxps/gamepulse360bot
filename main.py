@@ -153,6 +153,10 @@ async def send_news(context, entry):
         special_tags.append("#GuiaGamer")
         emoji_special = '📖'
 
+    if "#GuiaGamer" in special_tags:
+        if any(kw in title_lower for kw in ["guía interactiva", "guía del museo", "guía física"]):
+            special_tags.remove("#GuiaGamer")
+
     if any(kw in title_lower for kw in ["rebaja", "descuento", "precio reducido", "promoción", "baja de precio", "por solo", "al mejor precio", "de oferta", "está por menos de", "bundle", "mejores ofertas"]) \
         or "mejores ofertas" in title_lower:
         special_tags.append("#OfertaGamer")
@@ -279,7 +283,7 @@ async def send_news(context, entry):
 
     # Determinar si es una categoría especial y asignar el título especial correspondiente
     special_title = ""
-    # Prioridad: Evento, Tráiler, Códigos, Guía, Oferta, Lanzamiento, Retrasado
+    # Prioridad: Evento, Tráiler, Códigos, Guía, Oferta, Lanzamiento, Retrasado, Review
     if "#EventoEspecial" in special_tags:
         special_title = "*🎬 EVENTO ESPECIAL*"
     elif "#TrailerOficial" in special_tags:
@@ -294,6 +298,8 @@ async def send_news(context, entry):
         special_title = "*🎉 PRÓXIMO LANZAMIENTO*"
     elif "#LanzamientoRetrasado" in special_tags:
         special_title = "*⏳ RETRASADO*"
+    elif "#ReviewGamer" in special_tags:
+        special_title = "*📝 ANÁLISIS / REVIEW*"
 
     if special_title:
         caption = (
@@ -418,18 +424,89 @@ def main():
     job_queue.run_repeating(check_feeds, interval=600, first=10)
 
     # Enviar resumen diario todos los días a las 22:00
-    job_queue.run_daily(send_launch_summary, time=time(hour=22, minute=0))
+    job_queue.run_daily(send_daily_summary, time=time(hour=22, minute=0))
 
     # Importar mensajes antiguos y reenviar los no publicados recientes
     application.job_queue.run_once(import_existing_links, when=0)
 
     print("Bot iniciado correctamente.")
     application.run_polling()
+async def send_daily_summary(context):
+    from sent_articles import get_all_articles
+    print("📊 Enviando resumen diario...")
 
+    now = datetime.now()
+    today_start = datetime.combine(now.date(), datetime.min.time())
+    all_articles = get_all_articles()
 
+    ofertas = []
+    eventos = []
+    juegos_ps = []
+    juegos_xbox = []
+    juegos_switch = []
+    curiosidad = random.choice(CURIOSIDADES)
 
+    for feed_url in RSS_FEEDS:
+        feed = feedparser.parse(feed_url)
+        for entry in feed.entries:
+            if hasattr(entry, 'published_parsed'):
+                published = datetime(*entry.published_parsed[:6])
+                if published < today_start:
+                    continue
+            else:
+                continue
+            title = entry.title.lower()
+            link = entry.link
+            if link not in all_articles:
+                continue
 
+            if any(kw in title for kw in ["rebaja", "descuento", "precio reducido", "promoción", "baja de precio", "por solo", "al mejor precio", "de oferta", "bundle", "mejores ofertas"]):
+                ofertas.append(f"💸 {entry.title} — [🔗]({entry.link})")
 
+            if any(kw in title for kw in ["direct", "evento especial", "showcase", "game awards", "presentation", "conference", "wholesome direct", "state of play"]):
+                eventos.append(f"🎬 {entry.title} — [🔗]({entry.link})")
+
+            if "playstation" in title or "ps5" in title:
+                juegos_ps.append(f"🎮 {entry.title} — [🔗]({entry.link})")
+            if "xbox" in title:
+                juegos_xbox.append(f"🟢 {entry.title} — [🔗]({entry.link})")
+            if "nintendo" in title or "switch" in title:
+                juegos_switch.append(f"🍄 {entry.title} — [🔗]({entry.link})")
+
+    parts = []
+    parts.append(f"📊 *Resumen Gamer Diario - {now.strftime('%d/%m/%Y')}*")
+
+    total = len(all_articles)
+    if total > 0:
+        parts.append(f"✅ *Total publicaciones hoy:* {total}")
+
+    if ofertas:
+        parts.append("💸 *Ofertas destacadas:*\n" + "\n".join(ofertas[:3]))
+
+    if eventos:
+        parts.append("🚨 *Eventos especiales anunciados:*\n" + "\n".join(eventos[:3]))
+
+    if juegos_ps:
+        parts.append("🎮 *Top PlayStation:*\n" + "\n".join(juegos_ps[:3]))
+    if juegos_xbox:
+        parts.append("🟢 *Top Xbox:*\n" + "\n".join(juegos_xbox[:3]))
+    if juegos_switch:
+        parts.append("🍄 *Top Nintendo:*\n" + "\n".join(juegos_switch[:3]))
+
+    if curiosidad:
+        parts.append(f"🕹️ *Curiosidad Gamer del día:*\n_{curiosidad}_")
+
+    resumen = "\n\n".join(parts)
+
+    try:
+        await context.bot.send_message(
+            chat_id=CHANNEL_USERNAME,
+            text=resumen,
+            parse_mode=telegram.constants.ParseMode.MARKDOWN,
+            disable_web_page_preview=False
+        )
+    except Exception as e:
+        print(f"Error al enviar resumen diario: {e}")
 async def import_existing_links(context):
     print("🔎 Importando mensajes antiguos del canal...")
     bot = context.bot
